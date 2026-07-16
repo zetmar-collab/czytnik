@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src app: blob: data:; script-src app: blob:; style-src app: blob: data: 'unsafe-inline'; img-src app: blob: data: https:; font-src app: blob: data:; frame-src app: blob: data:; worker-src app: blob:; connect-src app: blob: data:;">
+<title>Czytnik</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ======= PASEK BOCZNY ======= -->
+  <aside id="sidebar">
+    <div class="logo">📚 Czytnik</div>
+    <input id="search" type="search" placeholder="Szukaj tytułu, autora…">
+    <nav id="format-filters">
+      <button class="filter-btn active" data-format="">Wszystkie</button>
+      <button class="filter-btn" data-format="epub">EPUB</button>
+      <button class="filter-btn" data-format="mobi">MOBI</button>
+      <button class="filter-btn" data-format="azw3">AZW3</button>
+      <button class="filter-btn" data-format="pdf">PDF</button>
+    </nav>
+    <label class="side-label">Sortowanie</label>
+    <select id="sort">
+      <option value="added_desc">Ostatnio dodane</option>
+      <option value="title_asc">Tytuł A–Z</option>
+      <option value="author_asc">Autor A–Z</option>
+      <option value="opened_desc">Ostatnio czytane</option>
+    </select>
+    <div class="side-spacer"></div>
+    <button id="btn-scan" class="primary">🔍 Skanuj dyski</button>
+    <button id="btn-add-files">➕ Dodaj pliki…</button>
+    <button id="btn-quick-folder">📂 Dodaj folder…</button>
+    <button id="btn-theme">🌓 Motyw: <span id="theme-name">ciemny</span></button>
+  </aside>
+
+  <!-- ======= BIBLIOTEKA ======= -->
+  <main id="main">
+    <header id="main-header">
+      <h1 id="lib-title">Biblioteka</h1>
+      <span id="lib-count"></span>
+      <div id="select-bar" class="hidden">
+        <span id="select-count"></span>
+        <button id="btn-select-all">Zaznacz wszystko</button>
+        <button id="btn-delete-selected" class="danger">🗑️ Usuń zaznaczone</button>
+        <button id="btn-select-cancel">Anuluj</button>
+      </div>
+    </header>
+    <div id="grid"></div>
+    <div id="empty-state" class="hidden">
+      <p>Brak książek w bibliotece.</p>
+      <p>Kliknij <b>Skanuj dyski</b>, aby wyszukać pliki EPUB, MOBI, AZW3 i PDF.</p>
+    </div>
+  </main>
+
+  <!-- ======= SZCZEGÓŁY KSIĄŻKI ======= -->
+  <div id="detail-modal" class="modal hidden">
+    <div class="modal-box detail-box">
+      <button class="modal-close" data-close>✕</button>
+      <div class="detail-layout">
+        <div class="detail-cover-col">
+          <div id="detail-cover" class="detail-cover"></div>
+          <div id="detail-progress"></div>
+        </div>
+        <div class="detail-info">
+          <h2 id="detail-title"></h2>
+          <p id="detail-author" class="detail-author"></p>
+          <p id="detail-meta" class="detail-meta"></p>
+          <p id="detail-rating" class="detail-rating"></p>
+          <div id="detail-desc" class="detail-desc"></div>
+          <p id="detail-path" class="detail-path"></p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-read" class="primary">📖 Czytaj</button>
+        <button id="btn-fetch-meta">🌐 Pobierz metadane</button>
+        <button id="btn-edit">✏️ Edytuj</button>
+        <button id="btn-cover">🖼️ Okładka…</button>
+        <button id="btn-folder">📁 Pokaż w folderze</button>
+        <button id="btn-delete" class="danger">🗑️ Usuń</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= EDYCJA RĘCZNA ======= -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-box">
+      <button class="modal-close" data-close>✕</button>
+      <h2>Edytuj dane książki</h2>
+      <form id="edit-form" class="edit-form">
+        <label>Tytuł<input name="title"></label>
+        <label>Autor<input name="author"></label>
+        <div class="form-row">
+          <label>Wydawnictwo<input name="publisher"></label>
+          <label>Rok<input name="year" maxlength="4"></label>
+        </div>
+        <div class="form-row">
+          <label>ISBN<input name="isbn"></label>
+          <label>Ocena (0–10)<input name="rating" type="number" min="0" max="10" step="0.1"></label>
+        </div>
+        <label>Cykl / seria<input name="series"></label>
+        <label>Opis<textarea name="description" rows="6"></textarea></label>
+        <div class="modal-actions">
+          <button type="submit" class="primary">💾 Zapisz</button>
+          <button type="button" data-close>Anuluj</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======= METADANE Z INTERNETU ======= -->
+  <div id="meta-modal" class="modal hidden">
+    <div class="modal-box meta-box">
+      <button class="modal-close" data-close>✕</button>
+      <h2>Pobierz metadane</h2>
+      <div class="meta-search-row">
+        <input id="meta-query" placeholder="Tytuł, autor…">
+        <button id="meta-go" class="primary">Szukaj</button>
+      </div>
+      <div class="meta-sources">
+        <button class="source-btn active" data-source="lubimyczytac">Lubimyczytać.pl</button>
+        <button class="source-btn" data-source="upolujebooka">UpolujEbooka.pl</button>
+        <button class="source-btn" data-source="google">Google Books</button>
+      </div>
+      <div id="meta-status"></div>
+      <div id="meta-results"></div>
+    </div>
+  </div>
+
+  <!-- ======= SKANOWANIE ======= -->
+  <div id="scan-modal" class="modal hidden">
+    <div class="modal-box">
+      <button class="modal-close" data-close>✕</button>
+      <h2>Skanowanie dysków</h2>
+      <p class="hint">Zaznacz dyski lub dodaj konkretne foldery. Foldery systemowe są pomijane.</p>
+      <div id="drive-list" class="drive-list"></div>
+      <div id="folder-chips" class="folder-chips"></div>
+      <label class="side-label">Szukane formaty plików</label>
+      <div id="scan-formats" class="drive-list">
+        <label class="drive-item"><input type="checkbox" value="epub" checked> EPUB</label>
+        <label class="drive-item"><input type="checkbox" value="mobi" checked> MOBI</label>
+        <label class="drive-item"><input type="checkbox" value="azw3" checked> AZW3</label>
+        <label class="drive-item"><input type="checkbox" value="pdf" checked> PDF</label>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-add-folder">📂 Dodaj folder…</button>
+        <button id="btn-start-scan" class="primary">▶️ Rozpocznij skanowanie</button>
+        <button id="btn-prune" title="Usuwa z biblioteki wpisy, których pliki już nie istnieją">🧹 Usuń brakujące</button>
+        <button id="btn-clear-db" class="danger" title="Usuwa wszystkie książki z bazy danych (pliki na dysku zostają)">🗑️ Wyczyść bazę</button>
+      </div>
+      <div id="scan-progress" class="hidden">
+        <div class="scan-spinner"></div>
+        <div id="scan-stats"></div>
+        <div id="scan-current"></div>
+        <button id="btn-cancel-scan" class="danger">Zatrzymaj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= CZYTNIK ======= -->
+  <div id="reader" class="hidden">
+    <header id="reader-bar">
+      <button id="reader-back" title="Wróć do biblioteki">← Biblioteka</button>
+      <span id="reader-title"></span>
+      <div class="reader-tools">
+        <button id="reader-toc-btn" title="Spis treści">☰</button>
+        <span id="font-tools">
+          <select id="reader-font" title="Czcionka"></select>
+          <button id="font-minus" title="Zmniejsz czcionkę">A−</button>
+          <span id="font-size-label"></span>
+          <button id="font-plus" title="Zwiększ czcionkę">A+</button>
+          <button id="reader-flow" title="Przewijanie / strony">📄</button>
+        </span>
+        <span id="zoom-tools" class="hidden">
+          <button id="zoom-out" title="Pomniejsz">−</button>
+          <select id="zoom-mode">
+            <option value="fit-page">Cała strona</option>
+            <option value="fit-width">Szerokość</option>
+          </select>
+          <button id="zoom-in" title="Powiększ">+</button>
+        </span>
+        <button id="reader-theme" title="Motyw czytnika">🌓</button>
+      </div>
+    </header>
+    <aside id="reader-toc" class="hidden"><h3>Spis treści</h3><ul id="toc-list"></ul></aside>
+    <div id="reader-view"></div>
+    <button id="page-prev" class="page-btn" title="Poprzednia strona">‹</button>
+    <button id="page-next" class="page-btn" title="Następna strona">›</button>
+    <footer id="reader-footer">
+      <input id="reader-slider" type="range" min="0" max="1" step="0.001" value="0">
+      <span id="reader-percent">0%</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

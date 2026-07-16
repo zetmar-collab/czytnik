@@ -1,0 +1,46 @@
+{
+  "name": "czytnik",
+  "version": "1.0.0",
+  "description": "Biblioteka i czytnik e-bookow (EPUB, MOBI, AZW3, PDF)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "pl.marek.czytnik",
+    "productName": "Czytnik",
+    "asar": false,
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Czytnik",
+      "artifactName": "Czytnik-Instalator-${version}.${ext}"
+    },
+    "files": [
+      "**/*",
+      "!dist",
+      "!test/biblioteka",
+      "!*.md",
+      "!.gitignore"
+    ]
+  },
+  "author": "Marek",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^5.10.1",
+    "foliate-js": "github:johnfactotum/foliate-js",
+    "jszip": "^3.10.1",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  }
+}
