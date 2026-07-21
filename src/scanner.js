@@ -3,6 +3,7 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const os = require('os');
 const db = require('./db');
 const { parseEpub } = require('./epub-meta');
 const { parseMobi } = require('./mobi-meta');
@@ -10,13 +11,16 @@ const { parseMobi } = require('./mobi-meta');
 const EXTS = { '.epub': 'epub', '.mobi': 'mobi', '.azw3': 'azw3', '.pdf': 'pdf' };
 
 const SKIP_DIRS = new Set([
+  // Windows
   'windows', '$recycle.bin', 'system volume information', 'programdata',
   'program files', 'program files (x86)', 'appdata', 'node_modules',
-  '$windows.~bt', '$windows.~ws', 'recovery', 'perflogs', '.git',
+  '$windows.~bt', '$windows.~ws', 'recovery', 'perflogs',
   'windows.old', 'msocache', 'onedrivetemp',
+  // Linux / ogólne
+  'proc', 'sys', 'dev', 'run', 'snap', '.cache', '.git',
 ]);
 
-function listDrives() {
+function listDrivesWindows() {
   const drives = [];
   for (let i = 65; i <= 90; i++) {
     const letter = String.fromCharCode(i) + ':\\';
@@ -26,6 +30,30 @@ function listDrives() {
     } catch { /* brak dysku */ }
   }
   return drives;
+}
+
+function listDrivesLinux() {
+  const roots = new Set([os.homedir()]);
+  const mediaRoots = [
+    '/media',
+    `/media/${os.userInfo().username}`,
+    `/run/media/${os.userInfo().username}`,
+    '/mnt',
+  ];
+  for (const dir of mediaRoots) {
+    try {
+      for (const name of fs.readdirSync(dir)) {
+        roots.add(path.join(dir, name));
+      }
+    } catch { /* brak katalogu / uprawnień */ }
+  }
+  return [...roots].filter((p) => {
+    try { return fs.statSync(p).isDirectory(); } catch { return false; }
+  });
+}
+
+function listDrives() {
+  return process.platform === 'win32' ? listDrivesWindows() : listDrivesLinux();
 }
 
 async function* walk(dir) {

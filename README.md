@@ -1,6 +1,6 @@
 # 📚 Czytnik
 
-Aplikacja na Windows do zarządzania biblioteką e-booków i ich czytania.
+Aplikacja na Windows i Linux do zarządzania biblioteką e-booków i ich czytania.
 
 ## Funkcje
 
@@ -26,6 +26,17 @@ npm install
 npm start
 ```
 
+## Budowanie instalatora
+
+```
+npm run dist:win     # instalator .exe (Windows, NSIS)
+npm run dist:linux   # AppImage (Linux)
+```
+
+Gotowe paczki trafiają do `dist/`. Aby dodatkowo budować pakiet `.deb`, trzeba
+uzupełnić w `package.json` pola `homepage` i `author.email` (wymagane przez
+electron-builder), a następnie dodać `"deb"` do listy `build.linux.target`.
+
 ## Struktura
 
 | Plik | Rola |
@@ -39,7 +50,7 @@ npm start
 | `renderer/` | interfejs: biblioteka (`app.js`) i czytnik (`reader.js`) |
 | `test/` | generator przykładowych plików + test dymny |
 
-Baza danych i okładki trafiają do `%APPDATA%/czytnik/`.
+Baza danych i okładki trafiają do katalogu danych aplikacji: `%APPDATA%/czytnik/` na Windows, `~/.config/czytnik/` na Linuksie.
 
 ## Testy
 

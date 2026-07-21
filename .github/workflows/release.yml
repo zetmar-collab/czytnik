@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,13 +28,13 @@ jobs:
           node test/smoke.js
 
       - name: Budowanie instalatora
-        run: npm run dist
+        run: npm run dist:win
 
       - name: Artefakt (uruchomienie testowe)
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: instalator
+          name: instalator-windows
           path: dist/Czytnik-Instalator-*.exe
 
       - name: Publikacja release
@@ -45,4 +45,40 @@ jobs:
           files: |
             dist/Czytnik-Instalator-*.exe
             dist/Czytnik-Instalator-*.exe.blockmap
+          generate_release_notes: true
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalacja zależności
+        run: npm ci
+
+      - name: Testy (headless)
+        run: |
+          node test/make-samples.js
+          node test/smoke.js
+
+      - name: Budowanie pakietu
+        run: npm run dist:linux
+
+      - name: Artefakt (uruchomienie testowe)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: instalator-linux
+          path: dist/Czytnik-*.AppImage
+
+      - name: Publikacja release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Czytnik ${{ github.ref_name }}
+          files: dist/Czytnik-*.AppImage
           generate_release_notes: true
