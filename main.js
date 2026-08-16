@@ -14,14 +14,14 @@ let pendingBookPath = null; // plik wskazany przy starcie (dwuklik w Eksplorator
 const { READABLE, bookPathFromArgv } = require('./src/cli');
 
 // tryb testowy: osobny, tymczasowy katalog danych
-if (process.env.CZYTNIK_SMOKE) {
+if (process.env.CZYTNIK_SMOKE || process.env.CZYTNIK_SHOTS || process.env.CZYTNIK_CHECK) {
   const os = require('os');
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'czytnik-smoke-')));
 }
 
 // Jedna instancja aplikacji — kolejne uruchomienia (np. dwuklik na pliku)
 // przekazują ścieżkę do już działającego okna zamiast otwierać drugie.
-if (!process.env.CZYTNIK_SMOKE) {
+if (!process.env.CZYTNIK_SMOKE && !process.env.CZYTNIK_SHOTS && !process.env.CZYTNIK_CHECK) {
   if (!app.requestSingleInstanceLock()) {
     app.quit();
   } else {
@@ -112,6 +112,14 @@ app.whenReady().then(async () => {
   win.webContents.once('did-finish-load', async () => {
     if (process.env.CZYTNIK_SMOKE) {
       require('./test/ui-smoke')(win, app);
+      return;
+    }
+    if (process.env.CZYTNIK_SHOTS) {
+      require('./test/store-screenshots')(win, app);
+      return;
+    }
+    if (process.env.CZYTNIK_CHECK) {
+      require('./test/check-pdf')(win, app);
       return;
     }
     if (pendingBookPath) {
@@ -317,5 +325,12 @@ ipcMain.handle('settings:set', (_e, key, value) => {
 // Zamiana ścieżki okładki na URL app://covers/...
 ipcMain.handle('cover:url', (_e, coverPath) => {
   if (!coverPath) return null;
-  return 'app://covers/' + encodeURIComponent(path.basename(coverPath));
+  // Znacznik świeżości bierzemy z daty samego pliku okładki — inaczej po
+  // podmianie okładki (metadane z sieci, własny plik) przeglądarka
+  // pokazywałaby starą grafikę z pamięci podręcznej.
+  let version = 0;
+  try {
+    version = Math.floor(fs.statSync(coverPath).mtimeMs);
+  } catch { /* brak pliku — URL i tak zwróci 404 */ }
+  return 'app://covers/' + encodeURIComponent(path.basename(coverPath)) + '?v=' + version;
 });

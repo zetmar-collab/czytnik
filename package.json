@@ -1,6 +1,6 @@
 {
   "name": "czytnik",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Biblioteka i czytnik e-booków — EPUB, MOBI, AZW3 i PDF",
   "main": "main.js",
   "desktopName": "czytnik.desktop",
@@ -21,7 +21,9 @@
       "icon": "build/icon.png"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "build/icon.png",
       "category": "Office",
       "artifactName": "Czytnik-${version}.${ext}",
@@ -41,17 +43,44 @@
       "displayName": "Czytnik Ebooków",
       "applicationId": "CzytnikEbookow",
       "backgroundColor": "#1c1b1a",
-      "languages": ["pl-PL", "en-US"],
+      "languages": [
+        "pl-PL",
+        "en-US"
+      ],
       "minVersion": "10.0.17763.0",
       "maxVersionTested": "10.0.26100.0",
       "showNameOnTiles": false,
       "artifactName": "CzytnikEbookow-Store-${version}.msix"
     },
     "fileAssociations": [
-      { "ext": "epub", "name": "EPUB", "description": "Książka EPUB", "role": "Viewer", "icon": "build/icon.png" },
-      { "ext": "mobi", "name": "MOBI", "description": "Książka MOBI", "role": "Viewer", "icon": "build/icon.png" },
-      { "ext": "azw3", "name": "AZW3", "description": "Książka AZW3", "role": "Viewer", "icon": "build/icon.png" },
-      { "ext": "pdf", "name": "PDF", "description": "Dokument PDF", "role": "Viewer", "icon": "build/icon.png" }
+      {
+        "ext": "epub",
+        "name": "EPUB",
+        "description": "Książka EPUB",
+        "role": "Viewer",
+        "icon": "build/icon.png"
+      },
+      {
+        "ext": "mobi",
+        "name": "MOBI",
+        "description": "Książka MOBI",
+        "role": "Viewer",
+        "icon": "build/icon.png"
+      },
+      {
+        "ext": "azw3",
+        "name": "AZW3",
+        "description": "Książka AZW3",
+        "role": "Viewer",
+        "icon": "build/icon.png"
+      },
+      {
+        "ext": "pdf",
+        "name": "PDF",
+        "description": "Dokument PDF",
+        "role": "Viewer",
+        "icon": "build/icon.png"
+      }
     ],
     "files": [
       "**/*",

@@ -48,7 +48,8 @@ function esc(s) {
 
 async function coverUrl(book) {
   if (!book.cover) return null;
-  return await api.coverUrl(book.cover) + '?v=' + (book.mtime || 0);
+  // URL zawiera już znacznik wersji oparty na dacie pliku okładki
+  return await api.coverUrl(book.cover);
 }
 
 // ---------- siatka biblioteki ----------
@@ -211,7 +212,7 @@ async function openDetail(id) {
   const coverEl = $('#detail-cover');
   coverEl.innerHTML = '📕';
   const url = await coverUrl(book);
-  if (url) coverEl.innerHTML = `<img src="${url}?t=${Date.now()}" alt="">`;
+  if (url) coverEl.innerHTML = `<img src="${esc(url)}" alt="">`;
 
   showModal('#detail-modal');
 }

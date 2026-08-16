@@ -155,6 +155,23 @@ module.exports = async function runUiSmoke(win, app) {
     const imported = JSON.parse(await js(`window.api.startScan(['${libDir}'], ['epub']).then(JSON.stringify)`));
     check('ponowny import po usunięciu', imported.added === 1, `dodano ${imported.added}`);
 
+    // 14b. URL okładki musi się zmienić po podmianie pliku okładki,
+    //      inaczej siatka pokazuje starą grafikę z pamięci podręcznej
+    {
+      const fs = require('fs');
+      const books = JSON.parse(await js(`window.api.listBooks({}).then(JSON.stringify)`));
+      const withCover = books.find((b) => b.cover);
+      if (!withCover) {
+        check('świeżość URL okładki', false, 'brak książki z okładką');
+      } else {
+        const before = await js(`window.api.coverUrl(${JSON.stringify(withCover.cover)})`);
+        const t = Date.now() + 5000;
+        fs.utimesSync(withCover.cover, t / 1000, t / 1000);
+        const after = await js(`window.api.coverUrl(${JSON.stringify(withCover.cover)})`);
+        check('świeżość URL okładki', before !== after, `${before} -> ${after}`);
+      }
+    }
+
     // 15. otwarcie dowolnego pliku z dysku prosto w czytniku
     //     (symuluje zdarzenie 'open-book' wysyłane po dwukliku w Eksploratorze)
     const epubPath = path.join(__dirname, 'biblioteka', 'Boleslaw_Prus-Lalka.epub');
