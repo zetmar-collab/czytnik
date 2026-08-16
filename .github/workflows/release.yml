@@ -81,4 +81,5 @@ jobs:
         with:
           name: Czytnik ${{ github.ref_name }}
           files: dist/Czytnik-*.AppImage
-          generate_release_notes: true
+          # Opis wydania generuje zadanie build-windows — inaczej oba
+          # zadania dopisują go dwa razy do tego samego release'u.
