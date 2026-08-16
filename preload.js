@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('api', {
   removeMany: (ids) => ipcRenderer.invoke('books:removeMany', ids),
   addFiles: () => ipcRenderer.invoke('books:addFiles'),
   addFolder: () => ipcRenderer.invoke('books:addFolder'),
+  openExternal: () => ipcRenderer.invoke('books:openExternal'),
+  onOpenBook: (cb) => {
+    const listener = (_e, id) => cb(id);
+    ipcRenderer.on('open-book', listener);
+    return () => ipcRenderer.removeListener('open-book', listener);
+  },
 
   // skanowanie
   listDrives: () => ipcRenderer.invoke('scan:drives'),

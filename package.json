@@ -1,14 +1,16 @@
 {
   "name": "czytnik",
   "version": "1.1.0",
-  "description": "Biblioteka i czytnik e-bookow (EPUB, MOBI, AZW3, PDF)",
+  "description": "Biblioteka i czytnik e-booków — EPUB, MOBI, AZW3 i PDF",
   "main": "main.js",
   "desktopName": "czytnik.desktop",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis --publish never",
     "dist:win": "electron-builder --win nsis --publish never",
-    "dist:linux": "electron-builder --linux AppImage --publish never"
+    "dist:linux": "electron-builder --linux AppImage --publish never",
+    "dist:store": "electron-builder --win appx --publish never",
+    "assets": "powershell -ExecutionPolicy Bypass -File build/make-appx-assets.ps1"
   },
   "build": {
     "appId": "pl.marek.czytnik",
@@ -32,12 +34,33 @@
       "shortcutName": "Czytnik",
       "artifactName": "Czytnik-Instalator-${version}.${ext}"
     },
+    "appx": {
+      "identityName": "MarekZettel-zetmar.CzytnikEbookw",
+      "publisher": "CN=15A53D32-C868-48EE-B700-5DBB5449CA1B",
+      "publisherDisplayName": "Marek Zettel - zetmar",
+      "displayName": "Czytnik Ebooków",
+      "applicationId": "CzytnikEbookow",
+      "backgroundColor": "#1c1b1a",
+      "languages": ["pl-PL", "en-US"],
+      "minVersion": "10.0.17763.0",
+      "maxVersionTested": "10.0.26100.0",
+      "showNameOnTiles": false,
+      "artifactName": "CzytnikEbookow-Store-${version}.msix"
+    },
+    "fileAssociations": [
+      { "ext": "epub", "name": "EPUB", "description": "Książka EPUB", "role": "Viewer", "icon": "build/icon.png" },
+      { "ext": "mobi", "name": "MOBI", "description": "Książka MOBI", "role": "Viewer", "icon": "build/icon.png" },
+      { "ext": "azw3", "name": "AZW3", "description": "Książka AZW3", "role": "Viewer", "icon": "build/icon.png" },
+      { "ext": "pdf", "name": "PDF", "description": "Dokument PDF", "role": "Viewer", "icon": "build/icon.png" }
+    ],
     "files": [
       "**/*",
       "!dist",
       "!test/biblioteka",
       "!*.md",
-      "!.gitignore"
+      "!.gitignore",
+      "!.github",
+      "!.claude"
     ]
   },
   "author": "Marek",

@@ -36,6 +36,23 @@ async function main() {
   console.log('Import plików:', imported);
   if (imported.added !== files.length) throw new Error('importFiles: zła liczba dodanych');
 
+  // wykrywanie pliku w argumentach (dwuklik w Eksploratorze)
+  const { bookPathFromArgv } = require('../src/cli');
+  const epub = path.join(libDir, 'Boleslaw_Prus-Lalka.epub');
+  const cases = [
+    [['electron.exe', epub], epub, 'ścieżka do EPUB'],
+    [['Czytnik.exe', '--flag', epub], epub, 'z pominięciem flagi'],
+    [['Czytnik.exe'], null, 'brak argumentów'],
+    [['Czytnik.exe', path.join(libDir, 'nie-ma.epub')], null, 'nieistniejący plik'],
+    [['Czytnik.exe', __filename], null, 'nieobsługiwany format'],
+  ];
+  for (const [argv, expected, opis] of cases) {
+    const got = bookPathFromArgv(argv);
+    const ok = expected === null ? got === null : got === path.resolve(expected);
+    console.log(`Argumenty (${opis}): ${ok ? 'OK' : 'BŁĄD — ' + got}`);
+    if (!ok) throw new Error('bookPathFromArgv: ' + opis);
+  }
+
   db.persist();
   console.log('OK — test dymny zaliczony');
 }

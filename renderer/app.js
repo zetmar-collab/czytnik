@@ -348,6 +348,33 @@ async function searchMeta() {
   }
 }
 
+// ---------- otwieranie dowolnego pliku z dysku ----------
+
+async function openBookById(id) {
+  const book = await api.getBook(id);
+  if (!book) { toast('Nie znaleziono książki'); return; }
+  state.currentBook = book;
+  hideModal('#detail-modal');
+  openReader(book, { onClose: loadBooks, toast });
+}
+
+$('#btn-open-file').addEventListener('click', async () => {
+  try {
+    const book = await api.openExternal();
+    if (!book) return;
+    await loadBooks();
+    await openBookById(book.id);
+  } catch (err) {
+    toast('Nie udało się otworzyć pliku: ' + err.message);
+  }
+});
+
+// plik przekazany z zewnątrz (dwuklik w Eksploratorze / „Otwórz za pomocą")
+api.onOpenBook(async (id) => {
+  await loadBooks();
+  await openBookById(id);
+});
+
 // ---------- dodawanie plików i folderu ----------
 
 $('#btn-add-files').addEventListener('click', async () => {

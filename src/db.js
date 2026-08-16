@@ -133,6 +133,10 @@ function getBook(id) {
   return get('SELECT * FROM books WHERE id = ?', [id]);
 }
 
+function getBookByPath(filePath) {
+  return get('SELECT * FROM books WHERE path = ?', [filePath]);
+}
+
 const EDITABLE = ['title', 'author', 'description', 'publisher', 'year', 'isbn', 'series', 'rating', 'cover', 'meta_source', 'progress', 'progress_pct', 'last_opened'];
 
 function updateBook(id, fields) {
@@ -177,6 +181,6 @@ function setSetting(key, value) {
 }
 
 module.exports = {
-  open, persist, upsertBook, listBooks, getBook, updateBook, removeBook,
+  open, persist, upsertBook, listBooks, getBook, getBookByPath, updateBook, removeBook,
   clearBooks, pruneMissing, getSetting, setSetting,
 };

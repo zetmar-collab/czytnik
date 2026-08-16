@@ -9,11 +9,31 @@ const metadata = require('./src/metadata');
 
 let win = null;
 let coversDir = null;
+let pendingBookPath = null; // plik wskazany przy starcie (dwuklik w Eksploratorze)
+
+const { READABLE, bookPathFromArgv } = require('./src/cli');
 
 // tryb testowy: osobny, tymczasowy katalog danych
 if (process.env.CZYTNIK_SMOKE) {
   const os = require('os');
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'czytnik-smoke-')));
+}
+
+// Jedna instancja aplikacji — kolejne uruchomienia (np. dwuklik na pliku)
+// przekazują ścieżkę do już działającego okna zamiast otwierać drugie.
+if (!process.env.CZYTNIK_SMOKE) {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+  } else {
+    app.on('second-instance', async (_e, argv) => {
+      const file = bookPathFromArgv(argv);
+      if (win) {
+        if (win.isMinimized()) win.restore();
+        win.focus();
+        if (file) await openBookFromPath(file);
+      }
+    });
+  }
 }
 
 // Własny protokół app:// — dzięki niemu w rendererze działają moduły ES,
@@ -58,8 +78,10 @@ function createWindow() {
       sandbox: false,
     },
   });
-  win.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) console.log(`[renderer] ${message} (${sourceId}:${line})`);
+  win.webContents.on('console-message', (e) => {
+    if (e.level === 'warning' || e.level === 'error') {
+      console.log(`[renderer] ${e.message} (${e.sourceId}:${e.lineNumber})`);
+    }
   });
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error(`[renderer] did-fail-load ${code} ${desc} ${url}`);
@@ -67,17 +89,36 @@ function createWindow() {
   win.loadURL('app://bundle/renderer/index.html');
 }
 
+// Dodaje plik do biblioteki (jeśli jeszcze go nie ma) i każe rendererowi
+// otworzyć go od razu w czytniku.
+async function openBookFromPath(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!READABLE.includes(ext)) return null;
+  await scanner.importFiles([filePath], coversDir);
+  db.persist();
+  const book = db.getBookByPath(filePath);
+  if (!book) return null;
+  win?.webContents.send('open-book', book.id);
+  return book;
+}
+
 app.whenReady().then(async () => {
   coversDir = path.join(app.getPath('userData'), 'covers');
   fs.mkdirSync(coversDir, { recursive: true });
   await db.open(app.getPath('userData'));
   registerAppProtocol();
+  pendingBookPath = bookPathFromArgv(process.argv);
   createWindow();
-  if (process.env.CZYTNIK_SMOKE) {
-    win.webContents.once('did-finish-load', () => {
+  win.webContents.once('did-finish-load', async () => {
+    if (process.env.CZYTNIK_SMOKE) {
       require('./test/ui-smoke')(win, app);
-    });
-  }
+      return;
+    }
+    if (pendingBookPath) {
+      await openBookFromPath(pendingBookPath);
+      pendingBookPath = null;
+    }
+  });
 });
 
 app.on('window-all-closed', () => {
@@ -130,6 +171,29 @@ ipcMain.handle('books:addFiles', async () => {
   db.persist();
   return result;
 });
+// Otwiera dowolny e-book z dysku prosto w czytniku (i dopisuje go do biblioteki,
+// dzięki czemu zapamiętywany jest postęp czytania).
+ipcMain.handle('books:openExternal', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Otwórz e-booka',
+    properties: ['openFile'],
+    filters: [
+      { name: 'E-booki', extensions: ['epub', 'mobi', 'azw3', 'pdf'] },
+      { name: 'EPUB', extensions: ['epub'] },
+      { name: 'MOBI / AZW3', extensions: ['mobi', 'azw3'] },
+      { name: 'PDF', extensions: ['pdf'] },
+    ],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  const filePath = res.filePaths[0];
+  if (!READABLE.includes(path.extname(filePath).toLowerCase())) {
+    throw new Error('Nieobsługiwany format pliku');
+  }
+  await scanner.importFiles([filePath], coversDir);
+  db.persist();
+  return db.getBookByPath(filePath);
+});
+
 ipcMain.handle('books:addFolder', async () => {
   const res = await dialog.showOpenDialog(win, {
     title: 'Wybierz folder z książkami',

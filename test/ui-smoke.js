@@ -6,6 +6,19 @@ module.exports = async function runUiSmoke(win, app) {
   const js = (code) => win.webContents.executeJavaScript(code, true);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const log = (...a) => console.log('[SMOKE]', ...a);
+
+  // Odtwarza ścieżkę „plik z dysku -> czytnik" używaną przez przycisk
+  // „Otwórz e-booka…" i przez dwuklik w Eksploratorze.
+  const openExternal = async (filePath) => {
+    const db = require('../src/db');
+    const scanner = require('../src/scanner');
+    const coversDir = path.join(app.getPath('userData'), 'covers');
+    await scanner.importFiles([filePath], coversDir);
+    const book = db.getBookByPath(filePath);
+    if (book) win.webContents.send('open-book', book.id);
+    return book;
+  };
+
   let failed = false;
   const check = (name, ok, extra = '') => {
     log(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`);
@@ -141,6 +154,19 @@ module.exports = async function runUiSmoke(win, app) {
     // 14. import pojedynczych plików (z pominięciem okna dialogowego)
     const imported = JSON.parse(await js(`window.api.startScan(['${libDir}'], ['epub']).then(JSON.stringify)`));
     check('ponowny import po usunięciu', imported.added === 1, `dodano ${imported.added}`);
+
+    // 15. otwarcie dowolnego pliku z dysku prosto w czytniku
+    //     (symuluje zdarzenie 'open-book' wysyłane po dwukliku w Eksploratorze)
+    const epubPath = path.join(__dirname, 'biblioteka', 'Boleslaw_Prus-Lalka.epub');
+    const opened = await openExternal(epubPath);
+    check('otwarcie e-booka z dysku', !!opened, opened ? `"${opened.title}"` : 'brak wyniku');
+    await sleep(4000);
+    const extReaderOpen = await js(`!document.querySelector('#reader').classList.contains('hidden')
+      && !!document.querySelector('#reader-view foliate-view')`);
+    const extTitle = await js(`document.querySelector('#reader-title').textContent`);
+    check('czytnik otwarty dla pliku z dysku', extReaderOpen, extTitle);
+    await js(`document.querySelector('#reader-back').click()`);
+    await sleep(500);
 
   } catch (err) {
     console.error('[SMOKE] BŁĄD:', err.message);
