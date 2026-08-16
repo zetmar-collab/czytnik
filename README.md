@@ -2,6 +2,16 @@
 
 Aplikacja na Windows i Linux do zarządzania biblioteką e-booków i ich czytania.
 
+[![Pobierz z Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-Pobierz-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://apps.microsoft.com/store/detail/9N2JZZGJ1TJP?cid=DevShareMCLPCS)
+[![Wydania](https://img.shields.io/github/v/release/zetmar-collab/czytnik?style=for-the-badge&label=Wydanie)](https://github.com/zetmar-collab/czytnik/releases/latest)
+
+## Instalacja
+
+**Windows — najprościej ze sklepu:**
+[Czytnik Ebooków w Microsoft Store](https://apps.microsoft.com/store/detail/9N2JZZGJ1TJP?cid=DevShareMCLPCS) — aplikacja jest darmowa i aktualizuje się automatycznie.
+
+Alternatywnie pobierz instalator `.exe` (Windows) albo `.AppImage` (Linux) z [ostatniego wydania](https://github.com/zetmar-collab/czytnik/releases/latest).
+
 ## Funkcje
 
 - **Otwieranie dowolnego e-booka z dysku** — przycisk „Otwórz e-booka…" albo zwykły dwuklik na pliku w Eksploratorze (aplikacja rejestruje się jako program obsługujący EPUB, MOBI, AZW3 i PDF). Otwarta książka trafia do biblioteki, więc postęp czytania jest zapamiętywany.
