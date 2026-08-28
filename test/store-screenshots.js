@@ -114,6 +114,13 @@ module.exports = async function makeShots(win, app) {
     await sleep(900);
     await shot('szczegoly-ksiazki', 'library');
 
+    // 2b. wyszukiwanie okładki w internecie
+    await js(`document.querySelector('#btn-find-cover').click(); undefined`);
+    await sleep(6000);
+    await shot('szukanie-okladki', 'library');
+    await js(`document.querySelector('#cover-modal').classList.add('hidden'); undefined`);
+    await sleep(600);
+
     // 3. czytnik — motyw ciemny
     await js(`document.querySelector('#btn-read').click(); undefined`);
     await sleep(4000);

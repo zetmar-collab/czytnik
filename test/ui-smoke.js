@@ -172,6 +172,25 @@ module.exports = async function runUiSmoke(win, app) {
       }
     }
 
+    // 14c. wyszukiwanie okładki w internecie
+    {
+      const res = JSON.parse(await js(`window.api.searchCovers('Lalka Prus').then(JSON.stringify)`));
+      const zrodla = [...new Set(res.covers.map((c) => c.source))];
+      check('wyszukiwanie okładek', res.covers.length > 0,
+        `${res.covers.length} okładek z: ${zrodla.join(', ')}` +
+        (res.errors.length ? ` | bez odpowiedzi: ${res.errors.map((e) => e.source).join(', ')}` : ''));
+
+      if (res.covers.length) {
+        const books = JSON.parse(await js(`window.api.listBooks({}).then(JSON.stringify)`));
+        const target = books[0];
+        const before = target.cover;
+        const applied = JSON.parse(await js(
+          `window.api.applyCover(${target.id}, ${JSON.stringify(res.covers[0].url)}).then(JSON.stringify)`));
+        check('ustawienie znalezionej okładki', !!applied.cover && applied.cover !== before,
+          `${before || '(brak)'} -> ${applied.cover}`);
+      }
+    }
+
     // 15. otwarcie dowolnego pliku z dysku prosto w czytniku
     //     (symuluje zdarzenie 'open-book' wysyłane po dwukliku w Eksploratorze)
     const epubPath = path.join(__dirname, 'biblioteka', 'Boleslaw_Prus-Lalka.epub');

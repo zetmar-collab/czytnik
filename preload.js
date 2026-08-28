@@ -40,6 +40,10 @@ contextBridge.exposeInMainWorld('api', {
   searchMeta: (source, query) => ipcRenderer.invoke('meta:search', source, query),
   applyMeta: (id, candidate) => ipcRenderer.invoke('meta:apply', id, candidate),
 
+  // okładki z internetu
+  searchCovers: (query) => ipcRenderer.invoke('covers:search', query),
+  applyCover: (id, url) => ipcRenderer.invoke('covers:apply', id, url),
+
   // ustawienia
   getSetting: (key, def) => ipcRenderer.invoke('settings:get', key, def),
   setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),

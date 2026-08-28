@@ -76,7 +76,8 @@
         <button id="btn-read" class="primary">📖 Czytaj</button>
         <button id="btn-fetch-meta">🌐 Pobierz metadane</button>
         <button id="btn-edit">✏️ Edytuj</button>
-        <button id="btn-cover">🖼️ Okładka…</button>
+        <button id="btn-find-cover">🖼️ Szukaj okładki</button>
+        <button id="btn-cover">📂 Okładka z pliku…</button>
         <button id="btn-folder">📁 Pokaż w folderze</button>
         <button id="btn-delete" class="danger">🗑️ Usuń</button>
       </div>
@@ -125,6 +126,22 @@
       </div>
       <div id="meta-status"></div>
       <div id="meta-results"></div>
+    </div>
+  </div>
+
+  <!-- ======= WYSZUKIWANIE OKŁADKI ======= -->
+  <div id="cover-modal" class="modal hidden">
+    <div class="modal-box cover-box">
+      <button class="modal-close" data-close>✕</button>
+      <h2>Szukaj okładki</h2>
+      <p class="hint">Przeszukuje Empik, Lubimyczytać, UpolujEbooka, Google Books, Open Library, Apple Books i grafikę Bing. Kliknij okładkę, aby ją ustawić.</p>
+      <div class="meta-search-row">
+        <input id="cover-query" placeholder="Tytuł i autor…">
+        <button id="cover-go" class="primary">Szukaj</button>
+      </div>
+      <div id="cover-filters" class="meta-sources"></div>
+      <div id="cover-status"></div>
+      <div id="cover-results" class="cover-grid"></div>
     </div>
   </div>
 

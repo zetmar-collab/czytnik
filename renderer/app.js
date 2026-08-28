@@ -400,6 +400,105 @@ function toastPersistent(msg) {
   clearTimeout(toastTimer);
 }
 
+// ---------- wyszukiwanie okładki w internecie ----------
+
+const coverState = { hits: [], filter: null };
+
+$('#btn-find-cover').addEventListener('click', () => {
+  const b = state.currentBook;
+  $('#cover-query').value = [b.title, b.author].filter(Boolean).join(' ');
+  $('#cover-results').innerHTML = '';
+  $('#cover-filters').innerHTML = '';
+  $('#cover-status').textContent = '';
+  coverState.hits = [];
+  coverState.filter = null;
+  showModal('#cover-modal');
+  searchCovers();
+});
+
+$('#cover-go').addEventListener('click', searchCovers);
+$('#cover-query').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchCovers(); });
+
+async function searchCovers() {
+  const query = $('#cover-query').value.trim();
+  if (!query) return;
+  const status = $('#cover-status');
+  $('#cover-results').innerHTML = '';
+  $('#cover-filters').innerHTML = '';
+  status.textContent = 'Przeszukuję księgarnie i wyszukiwarki…';
+  try {
+    const { covers, errors } = await api.searchCovers(query);
+    coverState.hits = covers;
+    coverState.filter = null;
+
+    const parts = [`Znaleziono ${covers.length} okładek`];
+    if (errors.length) parts.push(`bez odpowiedzi: ${errors.map((e) => e.source).join(', ')}`);
+    status.textContent = parts.join(' · ');
+
+    renderCoverFilters();
+    renderCoverHits();
+    if (!covers.length) status.textContent = 'Nic nie znaleziono. Spróbuj innej frazy — np. sam tytuł bez autora.';
+  } catch (err) {
+    status.textContent = 'Błąd wyszukiwania: ' + err.message;
+  }
+}
+
+function renderCoverFilters() {
+  const box = $('#cover-filters');
+  box.innerHTML = '';
+  const counts = new Map();
+  for (const h of coverState.hits) counts.set(h.source, (counts.get(h.source) || 0) + 1);
+
+  const mk = (label, value) => {
+    const btn = document.createElement('button');
+    btn.className = 'source-btn' + (coverState.filter === value ? ' active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      coverState.filter = value;
+      renderCoverFilters();
+      renderCoverHits();
+    });
+    box.append(btn);
+  };
+  mk(`Wszystkie (${coverState.hits.length})`, null);
+  for (const [src, n] of counts) mk(`${src} (${n})`, src);
+}
+
+function renderCoverHits() {
+  const box = $('#cover-results');
+  box.innerHTML = '';
+  const list = coverState.filter
+    ? coverState.hits.filter((h) => h.source === coverState.filter)
+    : coverState.hits;
+
+  for (const hit of list) {
+    const cell = document.createElement('div');
+    cell.className = 'cover-hit';
+    cell.title = hit.title ? `${hit.title} — ${hit.source}` : hit.source;
+    cell.innerHTML = `
+      <img loading="lazy" src="${esc(hit.url)}" alt="">
+      <span class="cap">${esc(hit.title || '')}</span>
+      <span class="src">${esc(hit.source)}</span>`;
+    // ukryj kafelki, których obrazek się nie wczytał (martwe linki z wyszukiwarki)
+    cell.querySelector('img').addEventListener('error', () => cell.remove());
+    cell.addEventListener('click', async () => {
+      cell.classList.add('busy');
+      $('#cover-status').textContent = 'Pobieram okładkę…';
+      try {
+        await api.applyCover(state.currentBook.id, hit.url);
+        hideModal('#cover-modal');
+        toast('Ustawiono nową okładkę');
+        await openDetail(state.currentBook.id);
+        loadBooks();
+      } catch (err) {
+        $('#cover-status').textContent = 'Nie udało się pobrać tej okładki: ' + err.message;
+        cell.classList.remove('busy');
+      }
+    });
+    box.append(cell);
+  }
+}
+
 // ---------- skanowanie ----------
 
 const scanFolders = new Set();

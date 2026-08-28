@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const db = require('./src/db');
 const scanner = require('./src/scanner');
 const metadata = require('./src/metadata');
+const covers = require('./src/covers');
 
 let win = null;
 let coversDir = null;
@@ -311,6 +312,21 @@ ipcMain.handle('meta:apply', async (_e, id, candidate) => {
     } catch { /* okładka opcjonalna */ }
   }
   db.updateBook(id, fields);
+  return db.getBook(id);
+});
+
+// ---------- IPC: wyszukiwanie okładek ----------
+
+ipcMain.handle('covers:search', async (_e, query) => {
+  return await covers.searchCovers(query);
+});
+
+ipcMain.handle('covers:apply', async (_e, id, url) => {
+  const { buf, ext } = await covers.download(url);
+  const file = path.join(coversDir, `${id}.${ext}`);
+  await fsp.writeFile(file, buf);
+  db.updateBook(id, { cover: file });
+  db.persist();
   return db.getBook(id);
 });
 

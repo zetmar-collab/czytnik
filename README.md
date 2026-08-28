@@ -21,6 +21,7 @@ Alternatywnie pobierz instalator `.exe` (Windows) albo `.AppImage` (Linux) z [os
   - Lubimyczytać.pl
   - UpolujEbooka.pl
   - Google Books
+- **Wyszukiwanie okładek** — osobna wyszukiwarka grafik przeszukująca jednocześnie Empik, Lubimyczytać, UpolujEbooka, Google Books, Open Library, Apple Books i grafikę Bing; wyniki można filtrować po źródle i ustawić okładkę jednym kliknięciem.
 - **Edycja ręczna** — gdy danych nie ma w serwisach, wszystkie pola można uzupełnić samodzielnie; można też wskazać własny plik okładki.
 - **Czytnik** wszystkich czterech formatów (oparty o foliate-js + pdf.js):
   - wybór czcionki i rozmiaru czcionki,
@@ -63,6 +64,7 @@ Dane sklepu (tożsamość pakietu, wydawca) siedzą w sekcji `build.appx` w `pac
 | `src/epub-meta.js` | metadane i okładki z EPUB |
 | `src/mobi-meta.js` | metadane i okładki z MOBI/AZW3 (EXTH) |
 | `src/metadata.js` | Lubimyczytać / UpolujEbooka / Google Books |
+| `src/covers.js` | wyszukiwanie okładek w 7 źródłach naraz |
 | `src/cli.js` | wykrywanie pliku przekazanego w argumentach (dwuklik w Eksploratorze) |
 | `renderer/` | interfejs: biblioteka (`app.js`) i czytnik (`reader.js`) |
 | `test/` | generator przykładowych plików + test dymny |
