@@ -27,12 +27,27 @@ CREATE TABLE IF NOT EXISTS books (
   added_at INTEGER,
   last_opened INTEGER,
   progress TEXT,
-  progress_pct REAL DEFAULT 0
+  progress_pct REAL DEFAULT 0,
+  tts_section INTEGER,
+  tts_chunk INTEGER
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE INDEX IF NOT EXISTS idx_books_title ON books(title);
 CREATE INDEX IF NOT EXISTS idx_books_author ON books(author);
 `;
+
+// Dopisuje kolumny brakujące w bazach założonych przed ich wprowadzeniem
+// (SQLite nie ma "ADD COLUMN IF NOT EXISTS", więc sprawdzamy ręcznie).
+function migrate() {
+  const cols = new Set(all("PRAGMA table_info(books)").map((r) => r.name));
+  const wanted = [
+    ['tts_section', 'INTEGER'],
+    ['tts_chunk', 'INTEGER'],
+  ];
+  for (const [name, type] of wanted) {
+    if (!cols.has(name)) db.exec(`ALTER TABLE books ADD COLUMN ${name} ${type}`);
+  }
+}
 
 async function open(userDataDir) {
   dbFile = path.join(userDataDir, 'biblioteka.sqlite');
@@ -45,6 +60,7 @@ async function open(userDataDir) {
     db = new SQL.Database();
   }
   db.exec(SCHEMA);
+  migrate();
   persist();
   return db;
 }
@@ -137,7 +153,7 @@ function getBookByPath(filePath) {
   return get('SELECT * FROM books WHERE path = ?', [filePath]);
 }
 
-const EDITABLE = ['title', 'author', 'description', 'publisher', 'year', 'isbn', 'series', 'rating', 'cover', 'meta_source', 'progress', 'progress_pct', 'last_opened'];
+const EDITABLE = ['title', 'author', 'description', 'publisher', 'year', 'isbn', 'series', 'rating', 'cover', 'meta_source', 'progress', 'progress_pct', 'last_opened', 'tts_section', 'tts_chunk'];
 
 function updateBook(id, fields) {
   const keys = Object.keys(fields).filter((k) => EDITABLE.includes(k));

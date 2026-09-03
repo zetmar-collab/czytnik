@@ -44,6 +44,15 @@ contextBridge.exposeInMainWorld('api', {
   searchCovers: (query) => ipcRenderer.invoke('covers:search', query),
   applyCover: (id, url) => ipcRenderer.invoke('covers:apply', id, url),
 
+  // czytanie na głos (SAPI / System.Speech)
+  platform: process.platform,
+  ttsSupported: () => ipcRenderer.invoke('tts:supported'),
+  ttsListVoices: () => ipcRenderer.invoke('tts:listVoices'),
+  ttsSpeak: (text, opts) => ipcRenderer.invoke('tts:speak', text, opts),
+  ttsPause: () => ipcRenderer.invoke('tts:pause'),
+  ttsResume: () => ipcRenderer.invoke('tts:resume'),
+  ttsStop: () => ipcRenderer.invoke('tts:stop'),
+
   // ustawienia
   getSetting: (key, def) => ipcRenderer.invoke('settings:get', key, def),
   setSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),

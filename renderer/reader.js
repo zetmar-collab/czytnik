@@ -1,5 +1,6 @@
 // Czytnik oparty o foliate-js (<foliate-view>): EPUB, MOBI, AZW3, PDF.
 import '../node_modules/foliate-js/view.js';
+import { onBookOpened as ttsOnBookOpened, onBookClosing as ttsOnBookClosing } from './tts-controller.js';
 
 const $ = (s) => document.querySelector(s);
 const api = window.api;
@@ -129,6 +130,7 @@ export async function openReader(book, { onClose, toast }) {
     applyStyles();
 
     buildTOC(view.book.toc || []);
+    ttsOnBookOpened(view, book, state.toast);
 
     // przywróć pozycję albo zacznij od początku
     let opened = false;
@@ -161,6 +163,7 @@ export async function openReader(book, { onClose, toast }) {
 
 function closeReader() {
   document.removeEventListener('keydown', onKey);
+  ttsOnBookClosing();
   try { state.view?.close(); } catch { /* ignoruj */ }
   state.view?.remove();
   state.view = null;

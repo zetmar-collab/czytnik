@@ -198,12 +198,26 @@
           <button id="zoom-in" title="Powiększ">+</button>
         </span>
         <button id="reader-theme" title="Motyw czytnika">🌓</button>
+        <button id="reader-tts-btn" title="Czytaj na głos">🔊</button>
       </div>
     </header>
-    <aside id="reader-toc" class="hidden"><h3>Spis treści</h3><ul id="toc-list"></ul></aside>
-    <div id="reader-view"></div>
-    <button id="page-prev" class="page-btn" title="Poprzednia strona">‹</button>
-    <button id="page-next" class="page-btn" title="Następna strona">›</button>
+    <div id="tts-bar" class="hidden">
+      <button id="tts-play" title="Odtwórz / wstrzymaj">▶️</button>
+      <button id="tts-stop" title="Zatrzymaj">⏹️</button>
+      <select id="tts-voice" title="Głos"></select>
+      <label class="tts-rate-label">
+        Tempo
+        <input id="tts-rate" type="range" min="-10" max="10" step="1" value="0">
+        <span id="tts-rate-value">0</span>
+      </label>
+      <span id="tts-status"></span>
+    </div>
+    <div id="reader-body">
+      <aside id="reader-toc" class="hidden"><h3>Spis treści</h3><ul id="toc-list"></ul></aside>
+      <div id="reader-view"></div>
+      <button id="page-prev" class="page-btn" title="Poprzednia strona">‹</button>
+      <button id="page-next" class="page-btn" title="Następna strona">›</button>
+    </div>
     <footer id="reader-footer">
       <input id="reader-slider" type="range" min="0" max="1" step="0.001" value="0">
       <span id="reader-percent">0%</span>

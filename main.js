@@ -7,6 +7,7 @@ const db = require('./src/db');
 const scanner = require('./src/scanner');
 const metadata = require('./src/metadata');
 const covers = require('./src/covers');
+const tts = require('./src/tts');
 
 let win = null;
 let coversDir = null;
@@ -15,14 +16,14 @@ let pendingBookPath = null; // plik wskazany przy starcie (dwuklik w Eksplorator
 const { READABLE, bookPathFromArgv } = require('./src/cli');
 
 // tryb testowy: osobny, tymczasowy katalog danych
-if (process.env.CZYTNIK_SMOKE || process.env.CZYTNIK_SHOTS || process.env.CZYTNIK_CHECK) {
+if (process.env.CZYTNIK_SMOKE || process.env.CZYTNIK_SHOTS || process.env.CZYTNIK_CHECK || process.env.CZYTNIK_TTS_PDF_CHECK) {
   const os = require('os');
   app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'czytnik-smoke-')));
 }
 
 // Jedna instancja aplikacji — kolejne uruchomienia (np. dwuklik na pliku)
 // przekazują ścieżkę do już działającego okna zamiast otwierać drugie.
-if (!process.env.CZYTNIK_SMOKE && !process.env.CZYTNIK_SHOTS && !process.env.CZYTNIK_CHECK) {
+if (!process.env.CZYTNIK_SMOKE && !process.env.CZYTNIK_SHOTS && !process.env.CZYTNIK_CHECK && !process.env.CZYTNIK_TTS_PDF_CHECK) {
   if (!app.requestSingleInstanceLock()) {
     app.quit();
   } else {
@@ -123,6 +124,10 @@ app.whenReady().then(async () => {
       require('./test/check-pdf')(win, app);
       return;
     }
+    if (process.env.CZYTNIK_TTS_PDF_CHECK) {
+      require('./test/tts-pdf-check')(win, app);
+      return;
+    }
     if (pendingBookPath) {
       await openBookFromPath(pendingBookPath);
       pendingBookPath = null;
@@ -132,9 +137,13 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   db.persist();
+  tts.dispose();
   app.quit();
 });
-app.on('before-quit', () => db.persist());
+app.on('before-quit', () => {
+  db.persist();
+  tts.dispose();
+});
 
 // ---------- IPC: biblioteka ----------
 
@@ -329,6 +338,15 @@ ipcMain.handle('covers:apply', async (_e, id, url) => {
   db.persist();
   return db.getBook(id);
 });
+
+// ---------- IPC: czytanie na głos (TTS) ----------
+
+ipcMain.handle('tts:supported', () => tts.supported);
+ipcMain.handle('tts:listVoices', () => tts.listVoices());
+ipcMain.handle('tts:speak', (_e, text, opts) => tts.speak(text, opts || {}));
+ipcMain.handle('tts:pause', () => tts.pause());
+ipcMain.handle('tts:resume', () => tts.resume());
+ipcMain.handle('tts:stop', () => tts.stop());
 
 // ---------- IPC: ustawienia ----------
 

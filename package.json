@@ -1,6 +1,6 @@
 {
   "name": "czytnik",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Biblioteka i czytnik e-booków — EPUB, MOBI, AZW3 i PDF",
   "main": "main.js",
   "desktopName": "czytnik.desktop",

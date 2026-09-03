@@ -204,6 +204,73 @@ module.exports = async function runUiSmoke(win, app) {
     await js(`document.querySelector('#reader-back').click()`);
     await sleep(500);
 
+    // 16. czytanie na głos (TTS) — tylko na Windows, gdzie działa SAPI
+    if (process.platform === 'win32') {
+      // otwórz z powrotem EPUB "Lalka"
+      await js(`[...document.querySelectorAll('.card')].find(c =>
+        c.querySelector('.card-title').textContent === 'Lalka').click(); undefined`);
+      await sleep(600);
+      await js(`document.querySelector('#btn-read').click(); undefined`);
+      await sleep(3500);
+
+      const ttsBtnHidden = await js(`document.querySelector('#reader-tts-btn').classList.contains('hidden')`);
+      check('przycisk TTS widoczny na Windows', !ttsBtnHidden);
+
+      await js(`document.querySelector('#reader-tts-btn').click(); undefined`);
+      await sleep(2500); // czas na listVoices()
+      const voiceCount = await js(`document.querySelector('#tts-voice').options.length`);
+      const voiceNames = await js(`[...document.querySelector('#tts-voice').options].map(o => o.value).join(' | ')`);
+      check('lista głosów wypełniona', voiceCount > 0, `${voiceCount}: ${voiceNames}`);
+
+      // jeśli dostępny jest doinstalowany głos (np. IVONA Jacek), wybierz go — inaczej zostaw domyślny
+      await js(`(() => {
+        const sel = document.querySelector('#tts-voice');
+        const jacek = [...sel.options].find(o => /jacek/i.test(o.value));
+        if (jacek) sel.value = jacek.value;
+        sel.dispatchEvent(new Event('change'));
+      })(); undefined`);
+
+      await js(`document.querySelector('#tts-play').click(); undefined`);
+      await sleep(1500);
+      let playBtn = await js(`document.querySelector('#tts-play').textContent`);
+      let status = await js(`document.querySelector('#tts-status').textContent`);
+      check('TTS: odtwarzanie wystartowało', playBtn.includes('⏸') || status === 'Czyta…',
+        `przycisk="${playBtn}" status="${status}"`);
+
+      await js(`document.querySelector('#tts-play').click(); undefined`); // pauza
+      await sleep(400);
+      status = await js(`document.querySelector('#tts-status').textContent`);
+      playBtn = await js(`document.querySelector('#tts-play').textContent`);
+      check('TTS: pauza', status === 'Wstrzymano' && playBtn.includes('▶'), `status="${status}" przycisk="${playBtn}"`);
+
+      await js(`document.querySelector('#tts-play').click(); undefined`); // wznowienie
+      await sleep(1500);
+      status = await js(`document.querySelector('#tts-status').textContent`);
+      check('TTS: wznowienie', status === 'Czyta…', `status="${status}"`);
+
+      // poczekaj aż silnik przeczyta co najmniej jeden fragment (postęp zapisany do bazy)
+      await sleep(4000);
+      const midBooks = JSON.parse(await js(`window.api.listBooks({search:'Lalka'}).then(JSON.stringify)`));
+      const midBook = midBooks[0];
+      check('TTS: postęp zapisany w bazie', (midBook.tts_section || 0) > 0 || (midBook.tts_chunk || 0) > 0,
+        `sekcja=${midBook.tts_section} fragment=${midBook.tts_chunk}`);
+
+      await js(`document.querySelector('#tts-stop').click(); undefined`);
+      await sleep(400);
+      status = await js(`document.querySelector('#tts-status').textContent`);
+      check('TTS: zatrzymanie', status === 'Zatrzymano', `status="${status}"`);
+
+      // zamknij i otwórz ponownie książkę — pozycja TTS powinna zostać zapamiętana
+      await js(`document.querySelector('#reader-back').click(); undefined`);
+      await sleep(600);
+      const afterBooks = JSON.parse(await js(`window.api.listBooks({search:'Lalka'}).then(JSON.stringify)`));
+      check('TTS: pozycja przetrwała zamknięcie czytnika',
+        afterBooks[0].tts_section === midBook.tts_section && afterBooks[0].tts_chunk === midBook.tts_chunk,
+        `sekcja=${afterBooks[0].tts_section} fragment=${afterBooks[0].tts_chunk}`);
+    } else {
+      log('TTS: pominięto (test uruchomiony poza Windows)');
+    }
+
   } catch (err) {
     console.error('[SMOKE] BŁĄD:', err.message);
     failed = true;
