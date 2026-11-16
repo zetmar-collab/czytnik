@@ -4,6 +4,7 @@
 //  - wyszukiwarka grafiki: Bing
 const { net } = require('electron');
 const cheerio = require('cheerio');
+const { assertPublicHttpUrlResolved, sniffImage } = require('./validate');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const TIMEOUT = 15000;
@@ -221,14 +222,28 @@ async function searchCovers(query) {
 }
 
 // Pobiera wskazaną okładkę; zwraca bufor i rozszerzenie pliku.
+// Tylko publiczne adresy http(s), limit rozmiaru, typ rozpoznawany po bajtach.
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 async function download(url) {
-  const res = await fetchRaw(url, { timeout: 25000 });
+  // przekierowania śledzimy ręcznie, żeby każdy skok przeszedł pełną walidację (w tym DNS)
+  let res;
+  let current = url;
+  for (let hop = 0; hop <= 5; hop++) {
+    await assertPublicHttpUrlResolved(current);
+    res = await fetchRaw(current, { timeout: 25000, redirect: 'manual' });
+    const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!loc) break;
+    if (hop === 5) throw new Error('zbyt wiele przekierowań');
+    current = new URL(loc, current).href;
+  }
   if (!res.ok) throw new Error(`nie udało się pobrać (HTTP ${res.status})`);
-  const type = res.headers.get('content-type') || '';
-  if (!type.startsWith('image/')) throw new Error('adres nie wskazuje na obrazek');
+  const declared = parseInt(res.headers.get('content-length') || '0', 10);
+  if (declared > MAX_IMAGE_BYTES) throw new Error('obrazek jest zbyt duży');
   const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > MAX_IMAGE_BYTES) throw new Error('obrazek jest zbyt duży');
   if (buf.length < 1024) throw new Error('obrazek jest zbyt mały');
-  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : type.includes('gif') ? 'gif' : 'jpg';
+  const ext = sniffImage(buf);
+  if (!ext) throw new Error('adres nie wskazuje na obrazek');
   return { buf, ext };
 }
 

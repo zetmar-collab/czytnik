@@ -45,6 +45,13 @@ $reader.Runspace = $readerRunspace
 }).AddArgument($queue)
 $readerHandle = $reader.BeginInvoke()
 
+# Anuluje bieżącą mowę. Syntezator wstrzymany (Pause) po anulowaniu zostaje w stanie Paused —
+# wtedy 'done' nie przychodzi, a kolejna wypowiedź jest niema; dlatego po anulowaniu wznawiamy.
+function Reset-Synth {
+  $synth.SpeakAsyncCancelAll()
+  if ($synth.State -eq [System.Speech.Synthesis.SynthesizerState]::Paused) { $synth.Resume() }
+}
+
 Write-Event @{ event = 'ready' }
 
 $awaitingDone = $false
@@ -82,18 +89,18 @@ while ($true) {
           'speak' {
             $cancelledFlag = $false
             try {
-              $synth.SpeakAsyncCancelAll()
+              Reset-Synth
               $synth.SpeakAsync([string]$cmd.text) | Out-Null
               $awaitingDone = $true
             } catch {
               Write-Event @{ event = 'done'; cancelled = $false; error = $_.Exception.Message }
             }
           }
-          'pause' { $synth.Pause() }
-          'resume' { $synth.Resume() }
+          'pause' { if ($synth.State -eq [System.Speech.Synthesis.SynthesizerState]::Speaking) { $synth.Pause() } }
+          'resume' { if ($synth.State -eq [System.Speech.Synthesis.SynthesizerState]::Paused) { $synth.Resume() } }
           'stop' {
             if ($awaitingDone) { $cancelledFlag = $true }
-            $synth.SpeakAsyncCancelAll()
+            Reset-Synth
           }
           'quit' { $synth.SpeakAsyncCancelAll(); $eof = $true }
           default { Write-Event @{ event = 'error'; message = "nieznane polecenie: $($cmd.cmd)" } }

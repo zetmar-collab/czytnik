@@ -6,19 +6,28 @@ const path = require('path');
 const os = require('os');
 const db = require('./db');
 const { parseEpub } = require('./epub-meta');
-const { parseMobi } = require('./mobi-meta');
+const { parseMobiFile } = require('./mobi-meta');
 
 const EXTS = { '.epub': 'epub', '.mobi': 'mobi', '.azw3': 'azw3', '.pdf': 'pdf' };
 
-const SKIP_DIRS = new Set([
-  // Windows
+// Katalogi pomijane przy skanowaniu — osobno dla Windows i Linuksa, żeby np. folder
+// "D:\Ebooki\dev" nie znikał tylko dlatego, że na Linuksie /dev to katalog systemowy.
+const SKIP_WIN = new Set([
   'windows', '$recycle.bin', 'system volume information', 'programdata',
   'program files', 'program files (x86)', 'appdata', 'node_modules',
   '$windows.~bt', '$windows.~ws', 'recovery', 'perflogs',
-  'windows.old', 'msocache', 'onedrivetemp',
-  // Linux / ogólne
-  'proc', 'sys', 'dev', 'run', 'snap', '.cache', '.git',
+  'windows.old', 'msocache', 'onedrivetemp', '.git',
 ]);
+const SKIP_COMMON = new Set(['node_modules', '.git', '.cache']);
+const SKIP_LINUX_ABS = new Set(['/proc', '/sys', '/dev', '/run', '/snap']);
+
+function shouldSkipDir(name, fullPath) {
+  const n = name.toLowerCase();
+  if (process.platform === 'win32') return SKIP_WIN.has(n) || name.startsWith('$');
+  return SKIP_COMMON.has(n) || SKIP_LINUX_ABS.has(fullPath);
+}
+
+const MAX_EPUB_META_BYTES = 300 * 1024 * 1024; // większe EPUB-y dodajemy bez czytania metadanych
 
 function listDrivesWindows() {
   const drives = [];
@@ -69,7 +78,7 @@ async function* walk(dir) {
     for (const e of entries) {
       const full = path.join(current, e.name);
       if (e.isDirectory()) {
-        if (!SKIP_DIRS.has(e.name.toLowerCase()) && !e.name.startsWith('$')) {
+        if (!shouldSkipDir(e.name, full)) {
           stack.push(full);
         }
       } else if (e.isFile()) {
@@ -84,11 +93,13 @@ function titleFromFilename(p) {
   return path.basename(p, path.extname(p)).replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function extractFileMeta(filePath, format) {
+async function extractFileMeta(filePath, format, size) {
   try {
-    const buf = await fsp.readFile(filePath);
-    if (format === 'epub') return await parseEpub(buf);
-    if (format === 'mobi' || format === 'azw3') return parseMobi(buf);
+    if (format === 'epub') {
+      if (size > MAX_EPUB_META_BYTES) return null;
+      return await parseEpub(await fsp.readFile(filePath));
+    }
+    if (format === 'mobi' || format === 'azw3') return await parseMobiFile(filePath);
   } catch { /* uszkodzony plik — użyjemy nazwy pliku */ }
   return null;
 }
@@ -108,8 +119,10 @@ async function importFile(filePath, format, coversDir) {
     title: titleFromFilename(filePath),
   });
 
-  if (existing.isNew) {
-    const meta = await extractFileMeta(filePath, format);
+  // nowy plik albo plik zmieniony od ostatniego skanu (dane ręczne/z internetu zostają nietknięte)
+  const refresh = existing.isNew || (existing.changed && db.getBook(existing.id)?.meta_source === 'plik');
+  if (refresh) {
+    const meta = await extractFileMeta(filePath, format, stat.size);
     if (meta) {
       const fields = {};
       if (meta.title) fields.title = meta.title;

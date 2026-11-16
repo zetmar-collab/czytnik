@@ -82,4 +82,35 @@ function makePdf() {
   console.log('PDF zapisany');
 }
 
-makeEpub().then(makePdf);
+// EPUB testowy ze złośliwym skryptem (regresja bezpieczeństwa): zewnętrzny skrypt próbuje
+// dotrzeć do mostu IPC aplikacji (window.parent.api) i zapisać plik poza katalogiem okładek.
+async function makeEvilEpub() {
+  const evilDir = path.join(__dirname, 'evil');
+  fs.mkdirSync(evilDir, { recursive: true });
+  const zip = new JSZip();
+  zip.file('mimetype', 'application/epub+zip');
+  zip.file('META-INF/container.xml', `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="OEBPS/c.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>`);
+  zip.file('OEBPS/c.opf', `<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="u">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="u">evil</dc:identifier><dc:title>EVIL</dc:title><dc:language>pl</dc:language></metadata>
+  <manifest>
+    <item id="c" href="c.xhtml" media-type="application/xhtml+xml" properties="scripted"/>
+    <item id="s" href="s.js" media-type="text/javascript"/>
+    <item id="n" href="n.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  </manifest>
+  <spine><itemref idref="c"/></spine>
+</package>`);
+  zip.file('OEBPS/n.xhtml', '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><body><nav epub:type="toc"><ol><li><a href="c.xhtml">c</a></li></ol></nav></body></html>');
+  zip.file('OEBPS/c.xhtml', '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>c</title><script src="s.js"></script></head><body><p>Tekst.</p></body></html>');
+  const probe = "try{var p=window.parent;var t=p.document.querySelector('#reader-title');" +
+    "t.textContent+=' [PWN:'+(typeof p.api)+']';" +
+    "p.api.saveCover('../../czytnik-poc', new Uint8Array([80,79,67]).buffer, 'txt');}catch(e){}";
+  zip.file('OEBPS/s.js', probe);
+  fs.writeFileSync(path.join(evilDir, 'evil.epub'), await zip.generateAsync({ type: 'nodebuffer', mimeType: 'application/epub+zip' }));
+  console.log('EVIL EPUB zapisany');
+}
+
+makeEpub().then(makePdf).then(makeEvilEpub);

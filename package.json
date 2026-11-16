@@ -1,6 +1,6 @@
 {
   "name": "czytnik",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "Biblioteka i czytnik e-booków — EPUB, MOBI, AZW3 i PDF",
   "main": "main.js",
   "desktopName": "czytnik.desktop",
@@ -10,7 +10,8 @@
     "dist:win": "electron-builder --win nsis --publish never",
     "dist:linux": "electron-builder --linux AppImage --publish never",
     "dist:store": "electron-builder --win appx --publish never",
-    "assets": "powershell -ExecutionPolicy Bypass -File build/make-appx-assets.ps1"
+    "assets": "powershell -ExecutionPolicy Bypass -File build/make-appx-assets.ps1",
+    "test": "node test/make-samples.js && node test/smoke.js && node test/unit.js"
   },
   "build": {
     "appId": "pl.marek.czytnik",
@@ -89,7 +90,8 @@
       "!*.md",
       "!.gitignore",
       "!.github",
-      "!.claude"
+      "!.claude",
+      "!test"
     ]
   },
   "author": "Marek",

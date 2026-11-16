@@ -1,6 +1,11 @@
 // Czytnik oparty o foliate-js (<foliate-view>): EPUB, MOBI, AZW3, PDF.
 import '../node_modules/foliate-js/view.js';
 import { onBookOpened as ttsOnBookOpened, onBookClosing as ttsOnBookClosing } from './tts-controller.js';
+import * as annotations from './annotations.js';
+import * as booksearch from './booksearch.js';
+import * as stats from './stats.js';
+import { togglePlay as ttsToggle, skip as ttsSkip } from './tts-controller.js';
+import { isDark, onSystemThemeChange, nextTheme } from './ui.js';
 
 const $ = (s) => document.querySelector(s);
 const api = window.api;
@@ -42,7 +47,7 @@ const DEFAULT_SETTINGS = {
 // ---------- style wstrzykiwane do książki ----------
 
 function bookCSS(s) {
-  const dark = s.readerTheme === 'dark';
+  const dark = isDark(s.readerTheme);
   const fontRule = s.fontFamily
     ? `html, body, p, li, blockquote, dd, div, span, h1, h2, h3, h4, h5, h6 { font-family: "${s.fontFamily}", serif !important; }`
     : '';
@@ -74,10 +79,12 @@ function applyStyles() {
   const s = state.settings;
   if (state.view?.renderer?.setStyles) state.view.renderer.setStyles(bookCSS(s));
   const readerView = $('#reader-view');
-  readerView.style.background = s.readerTheme === 'dark' ? '#201f1e' : '#f7f4ee';
-  $('#reader').classList.toggle('dark-book', s.readerTheme === 'dark');
+  const dark = isDark(s.readerTheme);
+  readerView.style.background = dark ? '#201f1e' : '#f7f4ee';
+  $('#reader').classList.toggle('dark-book', dark);
   $('#font-size-label').textContent = s.fontSize + 'px';
-  $('#reader-theme').textContent = s.readerTheme === 'dark' ? '🌙' : '☀️';
+  $('#reader-theme').textContent = { dark: '🌙', light: '☀️', auto: '🌓' }[s.readerTheme] || '🌙';
+  $('#reader-theme').title = { dark: 'Motyw: ciemny', light: 'Motyw: jasny', auto: 'Motyw: jak w systemie' }[s.readerTheme] + ' (kliknij, aby zmienić)';
   $('#reader-flow').textContent = s.flow === 'paginated' ? '📄' : '📜';
   $('#reader-flow').title = s.flow === 'paginated' ? 'Tryb: strony (kliknij, aby przewijać)' : 'Tryb: przewijanie (kliknij, aby stronicować)';
 }
@@ -89,6 +96,8 @@ async function saveSettings() {
 // ---------- otwieranie / zamykanie ----------
 
 export async function openReader(book, { onClose, toast }) {
+  // otwarcie kolejnej książki przy otwartym czytniku (np. dwuklik innego pliku) — zamknij poprzednią
+  if (state.view) closeReader({ silent: true });
   state.book = book;
   state.onClose = onClose;
   state.toast = toast;
@@ -109,6 +118,7 @@ export async function openReader(book, { onClose, toast }) {
     state.view = view;
 
     view.addEventListener('relocate', onRelocate);
+    view.addEventListener('load', (ev) => ev.detail?.doc?.addEventListener('keydown', onTtsKey));
     await view.open(file);
 
     state.isFixed = view.isFixedLayout;
@@ -131,6 +141,8 @@ export async function openReader(book, { onClose, toast }) {
 
     buildTOC(view.book.toc || []);
     ttsOnBookOpened(view, book, state.toast);
+    annotations.onBookOpened(view, book, state.toast);
+    $('#reader-search-btn').classList.toggle('hidden', state.isFixed && book.format === 'pdf');
 
     // przywróć pozycję albo zacznij od początku
     let opened = false;
@@ -141,6 +153,8 @@ export async function openReader(book, { onClose, toast }) {
       } catch { /* uszkodzony CFI — od początku */ }
     }
     if (!opened) await view.renderer.next();
+    booksearch.onBookOpened(view);
+    stats.onBookOpened(book);
 
     // brak okładki w bazie? spróbuj wyciągnąć z książki
     if (!book.cover && view.book.getCover) {
@@ -161,21 +175,37 @@ export async function openReader(book, { onClose, toast }) {
   document.addEventListener('keydown', onKey);
 }
 
-function closeReader() {
+function closeReader({ silent = false } = {}) {
   document.removeEventListener('keydown', onKey);
   ttsOnBookClosing();
+  annotations.onBookClosing();
+  booksearch.onBookClosing();
+  stats.onBookClosing();
   try { state.view?.close(); } catch { /* ignoruj */ }
   state.view?.remove();
   state.view = null;
   $('#reader').classList.add('hidden');
-  state.onClose?.();
+  if (!silent) state.onClose?.();
 }
 
 $('#reader-back').addEventListener('click', closeReader);
 
+// Skróty lektora: Ctrl+Spacja, Ctrl+←/→ (działają też z wnętrza książki i przy aktywnym przycisku).
+function onTtsKey(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return false;
+  if (e.key === ' ') ttsToggle();
+  else if (e.key === 'ArrowRight') ttsSkip(1);
+  else if (e.key === 'ArrowLeft') ttsSkip(-1);
+  else return false;
+  e.preventDefault();
+  return true;
+}
+
 function onKey(e) {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-  if (e.key === 'Escape') closeReader();
+  if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && onTtsKey(e)) return;
+  if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName) || e.target.isContentEditable) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); annotations.toggleBookmark(); }
+  else if (e.key === 'Escape') closeReader();
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp') state.view?.goLeft();
   else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') state.view?.goRight();
 }
@@ -185,6 +215,7 @@ function onKey(e) {
 let progressTimer;
 function onRelocate(e) {
   const { fraction, cfi } = e.detail;
+  stats.touch();
   if (fraction == null) return;
   $('#reader-slider').value = fraction;
   $('#reader-percent').textContent = Math.round(fraction * 100) + '%';
@@ -262,10 +293,11 @@ $('#font-plus').addEventListener('click', () => {
 });
 
 $('#reader-theme').addEventListener('click', () => {
-  state.settings.readerTheme = state.settings.readerTheme === 'dark' ? 'light' : 'dark';
+  state.settings.readerTheme = nextTheme(state.settings.readerTheme);
   applyStyles();
   saveSettings();
 });
+onSystemThemeChange(() => { if (state.settings?.readerTheme === 'auto' && state.view) applyStyles(); });
 
 $('#reader-flow').addEventListener('click', () => {
   state.settings.flow = state.settings.flow === 'paginated' ? 'scrolled' : 'paginated';

@@ -1,12 +1,22 @@
 // Logika biblioteki: siatka książek, szczegóły, edycja, metadane online, skanowanie.
 import { openReader } from './reader.js';
+import { initBookSearch, initFulltext } from './booksearch.js';
+import { initBackup } from './backup.js';
+import { initBulkMeta } from './bulkmeta.js';
+import { initStats } from './stats.js';
+import { initConvert } from './convert.js';
+import { initDevices } from './devices.js';
+import { initUpdates } from './updates.js';
+import * as collectionsUi from './collections.js';
+import { initDuplicates } from './duplicates.js';
+import { isDark, onSystemThemeChange, nextTheme, themeLabel } from './ui.js';
 
 const $ = (s) => document.querySelector(s);
 const api = window.api;
 
 const state = {
   books: [],
-  filters: { search: '', format: '', sort: 'added_desc' },
+  filters: { search: '', format: '', sort: 'added_desc', collection: null, tag: '', series: '' },
   currentBook: null,
   metaSource: 'lubimyczytac',
   scanning: false,
@@ -15,16 +25,18 @@ const state = {
 
 // ---------- motyw aplikacji ----------
 
+let themeMode = 'dark';
 async function initTheme() {
-  const theme = await api.getSetting('appTheme', 'dark');
-  applyTheme(theme);
+  applyTheme(await api.getSetting('appTheme', 'dark'));
 }
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  $('#theme-name').textContent = theme === 'dark' ? 'ciemny' : 'jasny';
+function applyTheme(mode) {
+  themeMode = ['dark', 'light', 'auto'].includes(mode) ? mode : 'dark';
+  document.documentElement.dataset.theme = isDark(themeMode) ? 'dark' : 'light';
+  $('#theme-name').textContent = themeLabel(themeMode);
 }
+onSystemThemeChange(() => { if (themeMode === 'auto') applyTheme('auto'); });
 $('#btn-theme').addEventListener('click', async () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  const next = nextTheme(themeMode);
   applyTheme(next);
   await api.setSetting('appTheme', next);
 });
@@ -40,10 +52,11 @@ export function toast(msg) {
   toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
 }
 
+// Escapowanie na potrzeby innerHTML — także w atrybutach (cudzysłowy i apostrofy).
 function esc(s) {
-  const div = document.createElement('div');
-  div.textContent = s ?? '';
-  return div.innerHTML;
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 async function coverUrl(book) {
@@ -57,12 +70,26 @@ async function coverUrl(book) {
 async function loadBooks() {
   state.books = await api.listBooks(state.filters);
   renderGrid();
+  collectionsUi.refreshSidebar().catch(() => {});
+}
+
+// Licznik książek: w całej bibliotece albo w wybranej półce / filtrze (z liczbą wszystkich).
+const plBooks = (n) => `${n} ${n === 1 ? 'książka' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'książki' : 'książek'}`;
+async function updateCounter() {
+  const shown = state.books.length;
+  const f = state.filters;
+  const filtered = !!(f.collection || f.tag || f.series || f.format || f.search);
+  let text = plBooks(shown);
+  if (filtered) {
+    try { text += ` (z ${await api.libraryCount()} w bibliotece)`; } catch { /* sam licznik wystarczy */ }
+  }
+  $('#lib-count').textContent = text;
 }
 
 async function renderGrid() {
   const grid = $('#grid');
   grid.innerHTML = '';
-  $('#lib-count').textContent = `${state.books.length} książek`;
+  updateCounter();
   $('#empty-state').classList.toggle('hidden', state.books.length > 0);
 
   for (const book of state.books) {
@@ -79,7 +106,7 @@ async function renderGrid() {
         ${pct > 0 ? `<div class="card-progress"><div style="width:${pct}%"></div></div>` : ''}
       </div>
       <div class="card-title">${esc(book.title || 'Bez tytułu')}</div>
-      <div class="card-author">${esc(book.author || '')}</div>`;
+      <div class="card-author">${esc([book.author, book.series].filter(Boolean).join(' · '))}</div>`;
     card.querySelector('.card-check').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSelect(book.id);
@@ -199,6 +226,7 @@ async function openDetail(id) {
   if (book.year) metaParts.push(book.year);
   if (book.isbn) metaParts.push('ISBN ' + book.isbn);
   if (book.series) metaParts.push('Cykl: ' + book.series);
+  if (book.tags) metaParts.push('Tagi: ' + book.tags);
   metaParts.push(book.format.toUpperCase() + ' · ' + formatSize(book.size));
   metaParts.push('dane: ' + (SOURCE_NAMES[book.meta_source] || book.meta_source));
   $('#detail-meta').textContent = metaParts.join('  ·  ');
@@ -259,6 +287,7 @@ $('#btn-edit').addEventListener('click', () => {
   f.isbn.value = b.isbn || '';
   f.rating.value = b.rating ?? '';
   f.series.value = b.series || '';
+  f.tags.value = b.tags || '';
   f.description.value = b.description || '';
   showModal('#edit-modal');
 });
@@ -274,6 +303,7 @@ $('#edit-form').addEventListener('submit', async (e) => {
     isbn: f.isbn.value.trim() || null,
     rating: f.rating.value !== '' ? parseFloat(f.rating.value) : null,
     series: f.series.value.trim() || null,
+    tags: f.tags.value.split(',').map((t) => t.trim()).filter(Boolean).join(', ') || null,
     description: f.description.value.trim() || null,
     meta_source: 'reczne',
   };
@@ -592,5 +622,20 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- start ----------
+
+const toolsCtx = { state, loadBooks, toast, openDetail, api, esc };
+collectionsUi.initCollections(toolsCtx);
+initDuplicates(toolsCtx);
+initBackup(toolsCtx);
+initBulkMeta(toolsCtx);
+initStats();
+initConvert(toolsCtx);
+initDevices(toolsCtx);
+initUpdates(toolsCtx);
+initBookSearch();
+initFulltext({ toast, openBook: (book) => openReader(book, { onClose: loadBooks, toast }) });
+$('#btn-tools').addEventListener('click', () => showModal('#tools-modal'));
+// kliknięcie narzędzia zamyka menu narzędzi
+document.querySelectorAll('#tools-modal .tool').forEach((b) => b.addEventListener('click', () => hideModal('#tools-modal')));
 
 initTheme().then(loadBooks);

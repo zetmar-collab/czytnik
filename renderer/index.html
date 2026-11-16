@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src app: blob: data:; script-src app: blob:; style-src app: blob: data: 'unsafe-inline'; img-src app: blob: data: https:; font-src app: blob: data:; frame-src app: blob: data:; worker-src app: blob:; connect-src app: blob: data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src app: blob: data:; script-src app:; style-src app: blob: data: 'unsafe-inline'; img-src app: blob: data: https:; font-src app: blob: data:; frame-src app: blob: data:; worker-src app: blob:; connect-src app: blob: data:;">
 <title>Czytnik</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -26,12 +26,21 @@
       <option value="title_asc">Tytuł A–Z</option>
       <option value="author_asc">Autor A–Z</option>
       <option value="opened_desc">Ostatnio czytane</option>
+      <option value="series_asc">Seria</option>
     </select>
+    <div id="side-scroll">
+      <label class="side-label">Półki</label>
+      <div id="collection-list" class="side-list"></div>
+      <button id="btn-new-collection" class="small">➕ Nowa półka</button>
+      <div class="side-group hidden"><label class="side-label">Tagi</label><div id="tag-list" class="chips"></div></div>
+      <div class="side-group hidden"><label class="side-label">Seria</label><select id="series-filter"><option value="">Wszystkie serie</option></select></div>
+    </div>
     <div class="side-spacer"></div>
     <button id="btn-open-file" class="primary">📖 Otwórz e-booka…</button>
     <button id="btn-scan">🔍 Skanuj dyski</button>
     <button id="btn-add-files">➕ Dodaj pliki…</button>
     <button id="btn-quick-folder">📂 Dodaj folder…</button>
+    <button id="btn-tools">🛠️ Narzędzia…</button>
     <button id="btn-theme">🌓 Motyw: <span id="theme-name">ciemny</span></button>
   </aside>
 
@@ -43,6 +52,9 @@
       <div id="select-bar" class="hidden">
         <span id="select-count"></span>
         <button id="btn-select-all">Zaznacz wszystko</button>
+        <button id="btn-to-collection">🗂️ Do półki…</button>
+        <button id="btn-convert-selected">🔄 Konwertuj…</button>
+        <button id="btn-device-selected">🔌 Na czytnik…</button>
         <button id="btn-delete-selected" class="danger">🗑️ Usuń zaznaczone</button>
         <button id="btn-select-cancel">Anuluj</button>
       </div>
@@ -76,6 +88,9 @@
         <button id="btn-read" class="primary">📖 Czytaj</button>
         <button id="btn-fetch-meta">🌐 Pobierz metadane</button>
         <button id="btn-edit">✏️ Edytuj</button>
+        <button id="btn-book-collections">🗂️ Półki</button>
+        <button id="btn-convert-book">🔄 Konwertuj…</button>
+        <button id="btn-device-book">🔌 Na czytnik…</button>
         <button id="btn-find-cover">🖼️ Szukaj okładki</button>
         <button id="btn-cover">📂 Okładka z pliku…</button>
         <button id="btn-folder">📁 Pokaż w folderze</button>
@@ -101,12 +116,195 @@
           <label>Ocena (0–10)<input name="rating" type="number" min="0" max="10" step="0.1"></label>
         </div>
         <label>Cykl / seria<input name="series"></label>
+        <label>Tagi (po przecinku)<input name="tags" placeholder="np. fantastyka, lektura"></label>
         <label>Opis<textarea name="description" rows="6"></textarea></label>
         <div class="modal-actions">
           <button type="submit" class="primary">💾 Zapisz</button>
           <button type="button" data-close>Anuluj</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ======= NARZĘDZIA ======= -->
+  <div id="tools-modal" class="modal hidden">
+    <div class="modal-box">
+      <button class="modal-close" data-close>✕</button>
+      <h2>Narzędzia biblioteki</h2>
+      <div class="tools-grid">
+        <button id="btn-fts" class="tool"><b>🔎 Szukaj w treści książek</b><span>Wyszukiwanie frazy we wszystkich książkach naraz (EPUB, MOBI, AZW3).</span></button>
+        <button id="btn-devices" class="tool"><b>🔌 Czytniki i tablety (USB)</b><span>Wyślij książki, półki lub całą bibliotekę na Kindle, Kobo, PocketBook, Boox i pobierz nowe z urządzenia.</span></button>
+        <button id="btn-convert-tool" class="tool"><b>🔄 Konwersja książek</b><span>EPUB / MOBI → DOCX, PDF, Markdown, TXT (zaznacz książki w bibliotece).</span></button>
+        <button id="btn-updates" class="tool"><b>⬆️ Aktualizacje</b><span>Sprawdź, czy na GitHubie jest nowsza wersja programu.</span></button>
+        <button id="btn-stats" class="tool"><b>📊 Statystyki czytania</b><span>Czas czytania, seria dni, najczęściej czytane książki.</span></button>
+        <button id="btn-bulk" class="tool"><b>✨ Uzupełnij metadane</b><span>Automatycznie dopasuj opisy, okładki i autorów dla książek znanych tylko z pliku.</span></button>
+        <button id="btn-backup" class="tool"><b>💾 Kopia i synchronizacja</b><span>Zapisz lub wczytaj kopię zapasową, synchronizuj postępy i notatki między komputerami.</span></button>
+        <button id="btn-dups" class="tool"><b>🔁 Duplikaty</b><span>Znajdź te same książki zapisane w kilku miejscach.</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= WYSZUKIWANIE W TREŚCI ======= -->
+  <div id="fts-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="fts-close" class="modal-close">✕</button>
+      <h2>Szukaj w treści książek</h2>
+      <p id="fts-status" class="hint"></p>
+      <div id="fts-index-row" class="modal-actions hidden">
+        <button id="fts-build">⚙️ Zbuduj indeks</button>
+        <button id="fts-cancel" class="hidden">Przerwij</button>
+        <progress id="fts-progress" class="hidden" max="1" value="0"></progress>
+      </div>
+      <form id="fts-form"><input id="fts-input" type="search" placeholder="Szukana fraza (min. 2 znaki)…" autocomplete="off"></form>
+      <div id="fts-results"></div>
+    </div>
+  </div>
+
+  <!-- ======= KONWERSJA ======= -->
+  <div id="convert-modal" class="modal hidden">
+    <div class="modal-box">
+      <button id="convert-close" class="modal-close">✕</button>
+      <h2>Konwersja książek</h2>
+      <p id="convert-info" class="hint"></p>
+      <label class="drive-item"><input type="radio" name="convfmt" value="docx" checked> 📝 DOCX (Word)</label>
+      <label class="drive-item"><input type="radio" name="convfmt" value="pdf"> 📕 PDF (z obrazkami)</label>
+      <label class="drive-item"><input type="radio" name="convfmt" value="md"> 🔖 Markdown (.md)</label>
+      <label class="drive-item"><input type="radio" name="convfmt" value="txt"> 📄 Tekst (.txt)</label>
+      <p class="hint">Konwertowane są EPUB, MOBI i AZW3 bez DRM. Oryginały zostają nietknięte. Układ strony jest uproszczony (nagłówki, akapity, listy, pogrubienia).</p>
+      <div class="modal-actions"><button id="convert-start">▶️ Konwertuj</button><progress id="convert-progress" class="hidden" max="1" value="0"></progress></div>
+      <div id="convert-report"></div>
+    </div>
+  </div>
+
+  <!-- ======= CZYTNIKI USB ======= -->
+  <div id="devices-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="devices-close" class="modal-close">✕</button>
+      <h2>Czytniki i tablety (USB)</h2>
+      <p class="hint">Podłącz urządzenie kablem USB i włącz w nim tryb pamięci masowej. Obsługiwane: Kindle, Kobo / Tolino, PocketBook, Onyx Boox i inne widoczne jako dysk. Tablety w trybie MTP (bez litery dysku) trzeba przełączyć na „Przesyłanie plików / pamięć masowa". Synchronizacja niczego nie usuwa ani nie nadpisuje.</p>
+      <div class="modal-actions"><select id="dev-select"></select><button id="dev-refresh">🔄 Odśwież</button></div>
+      <p id="dev-info" class="hint"></p>
+      <label class="drive-item"><span>Zakres:</span>
+        <select id="dev-scope"><option value="all">Cała biblioteka</option><option value="shelf">Wybrana półka</option><option value="selected">Zaznaczone książki</option></select>
+        <select id="dev-shelf" class="hidden"></select>
+      </label>
+      <label class="drive-item"><input type="checkbox" id="dev-folders" checked> Półka = folder na urządzeniu</label>
+      <p class="hint">Pobrane książki trafiają do: <span id="dev-importdir"></span> <button id="dev-pickdir">Zmień…</button></p>
+      <div class="modal-actions">
+        <button id="dev-send">⬆️ Wyślij na urządzenie</button>
+        <button id="dev-receive">⬇️ Pobierz nowe z urządzenia</button>
+        <button id="dev-sync">🔄 Synchronizuj dwustronnie</button>
+        <progress id="dev-progress" class="hidden" max="1" value="0"></progress>
+      </div>
+      <div id="dev-report"></div>
+    </div>
+  </div>
+
+  <!-- ======= AKTUALIZACJE ======= -->
+  <div id="update-modal" class="modal hidden">
+    <div class="modal-box">
+      <button id="update-close" class="modal-close">✕</button>
+      <h2>Aktualizacje</h2>
+      <p id="update-status" class="hint"></p>
+      <pre id="update-notes" class="hidden"></pre>
+      <progress id="update-progress" class="hidden" max="1" value="0"></progress>
+      <div class="modal-actions">
+        <button id="update-check">🔍 Sprawdź teraz</button>
+        <button id="update-download" class="hidden">⬇️ Pobierz aktualizację</button>
+        <button id="update-install" class="hidden">✅ Zainstaluj</button>
+        <button id="update-later" class="hidden">Później</button>
+        <button id="update-skip" class="hidden">Pomiń tę wersję</button>
+      </div>
+      <label class="drive-item"><input type="checkbox" id="update-auto"> Sprawdzaj automatycznie przy starcie (raz na dobę)</label>
+    </div>
+  </div>
+
+  <!-- ======= STATYSTYKI ======= -->
+  <div id="stats-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="stats-close" class="modal-close">✕</button>
+      <h2>Statystyki czytania</h2>
+      <div id="stats-cards"></div>
+      <h3>Ostatnie 14 dni</h3>
+      <div id="stats-chart"></div>
+      <h3>Najczęściej czytane</h3>
+      <ol id="stats-top"></ol>
+    </div>
+  </div>
+
+  <!-- ======= MASOWE METADANE ======= -->
+  <div id="bulk-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="bulk-close" class="modal-close">✕</button>
+      <h2>Uzupełnij metadane</h2>
+      <p id="bulk-info" class="hint"></p>
+      <div class="modal-actions">
+        <button id="bulk-start">✨ Rozpocznij</button>
+        <button id="bulk-cancel" class="hidden">Przerwij</button>
+        <progress id="bulk-progress" class="hidden" max="1" value="0"></progress>
+      </div>
+      <div id="bulk-report"></div>
+    </div>
+  </div>
+
+  <!-- ======= KOPIA I SYNCHRONIZACJA ======= -->
+  <div id="backup-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="backup-close" class="modal-close">✕</button>
+      <h2>Kopia i synchronizacja</h2>
+      <h3>Kopia zapasowa</h3>
+      <p class="hint">Plik JSON z postępem czytania, zakładkami, notatkami, półkami, tagami, ocenami i statystykami (bez samych książek). Wczytanie <b>scala</b> dane z istniejącymi — niczego nie nadpisuje na ślepo.</p>
+      <div class="modal-actions">
+        <button id="backup-export">⬇️ Zapisz kopię…</button>
+        <button id="backup-import">⬆️ Wczytaj kopię…</button>
+      </div>
+      <label class="drive-item"><input type="checkbox" id="autobackup-on"> Automatyczna kopia metadanych co tydzień (ostatnie 10 w folderze danych)</label>
+      <p class="hint"><span id="autobackup-last"></span> <button id="autobackup-open">📂 Otwórz folder kopii</button></p>
+      <h3>Synchronizacja przez folder</h3>
+      <p class="hint">Wskaż folder we OneDrive, Dropbox lub na dysku sieciowym — na każdym komputerze ten sam. Czytnik wymienia tam postępy, zakładki i notatki (książki są rozpoznawane po ISBN albo tytule i autorze, więc mogą leżeć w różnych miejscach).</p>
+      <p id="sync-state" class="hint"></p>
+      <div class="modal-actions">
+        <button id="sync-pick">📁 Wybierz folder…</button>
+        <button id="sync-now" class="hidden">🔄 Synchronizuj teraz</button>
+        <button id="sync-off" class="hidden danger">Wyłącz</button>
+      </div>
+      <p id="backup-result" class="hint"></p>
+    </div>
+  </div>
+
+  <!-- ======= DUPLIKATY ======= -->
+  <div id="dups-modal" class="modal hidden">
+    <div class="modal-box wide-box">
+      <button id="dups-close" class="modal-close">✕</button>
+      <h2>Duplikaty w bibliotece</h2>
+      <p id="dups-summary" class="hint"></p>
+      <div id="dups-list"></div>
+      <div class="modal-actions"><button id="dups-delete" class="danger">🗑️ Usuń zaznaczone wpisy</button></div>
+    </div>
+  </div>
+
+  <!-- ======= PÓŁKI ======= -->
+  <div id="col-picker-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="col-picker-title">Półki</h2>
+      <div id="col-picker-list" class="drive-list"></div>
+      <div class="modal-actions">
+        <button id="col-new">➕ Nowa półka…</button>
+        <button id="col-picker-ok" class="primary">💾 Zapisz</button>
+        <button id="col-picker-cancel">Anuluj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= OKNO Z POLEM TEKSTOWYM (zamiennik prompt) ======= -->
+  <div id="ask-modal" class="modal over-reader hidden">
+    <div class="modal-box">
+      <h2 id="ask-title"></h2>
+      <input id="ask-input" type="text" maxlength="80">
+      <div class="modal-actions">
+        <button id="ask-ok" class="primary">OK</button>
+        <button id="ask-cancel">Anuluj</button>
+      </div>
     </div>
   </div>
 
@@ -198,11 +396,16 @@
           <button id="zoom-in" title="Powiększ">+</button>
         </span>
         <button id="reader-theme" title="Motyw czytnika">🌓</button>
+        <button id="reader-search-btn" title="Szukaj w książce (Ctrl+F)">🔍</button>
+        <button id="reader-bookmark-btn" title="Zakładka (Ctrl+B)">🏷️</button>
+        <button id="reader-ann-btn" title="Zakładki i notatki">📑</button>
         <button id="reader-tts-btn" title="Czytaj na głos">🔊</button>
       </div>
     </header>
     <div id="tts-bar" class="hidden">
-      <button id="tts-play" title="Odtwórz / wstrzymaj">▶️</button>
+      <button id="tts-prev" title="Poprzednie zdanie (Ctrl+←)">⏮️</button>
+      <button id="tts-play" title="Odtwórz / wstrzymaj (Ctrl+Spacja)">▶️</button>
+      <button id="tts-next" title="Następne zdanie (Ctrl+→)">⏭️</button>
       <button id="tts-stop" title="Zatrzymaj">⏹️</button>
       <select id="tts-voice" title="Głos"></select>
       <label class="tts-rate-label">
@@ -210,11 +413,38 @@
         <input id="tts-rate" type="range" min="-10" max="10" step="1" value="0">
         <span id="tts-rate-value">0</span>
       </label>
+      <select id="tts-timer" title="Zegar uśpienia">
+        <option value="0">Zegar: wyłączony</option>
+        <option value="15">Wyłącz za 15 min</option>
+        <option value="30">Wyłącz za 30 min</option>
+        <option value="45">Wyłącz za 45 min</option>
+        <option value="60">Wyłącz za 60 min</option>
+        <option value="chapter">Do końca rozdziału</option>
+      </select>
+      <span id="tts-progress"></span>
       <span id="tts-status"></span>
     </div>
     <div id="reader-body">
       <aside id="reader-toc" class="hidden"><h3>Spis treści</h3><ul id="toc-list"></ul></aside>
       <div id="reader-view"></div>
+      <aside id="ann-panel" class="hidden">
+        <header><h3>Zakładki i notatki <span id="ann-count" class="badge">0</span></h3>
+          <span><button id="ann-copy" title="Kopiuj jako Markdown">📋</button><button id="ann-close" title="Zamknij">✕</button></span></header>
+        <div id="ann-list"></div>
+      </aside>
+      <aside id="search-panel" class="side-panel hidden">
+        <header><h3>Szukaj w książce <span id="search-count" class="badge">0</span></h3>
+          <span><button id="search-close" title="Zamknij">✕</button></span></header>
+        <form id="search-form"><input id="search-input" type="search" placeholder="Szukana fraza…" autocomplete="off"></form>
+        <div id="search-status" class="hint"></div>
+        <div id="search-list"></div>
+      </aside>
+      <div id="sel-bar" class="hidden">
+        <span id="sel-text"></span>
+        <span id="sel-colors"><button class="color-dot" title="Zakreśl"></button><button class="color-dot" title="Zakreśl"></button><button class="color-dot" title="Zakreśl"></button><button class="color-dot" title="Zakreśl"></button></span>
+        <button id="sel-note" title="Dodaj notatkę">📝 Notatka</button>
+        <button id="sel-close" title="Zamknij">✕</button>
+      </div>
       <button id="page-prev" class="page-btn" title="Poprzednia strona">‹</button>
       <button id="page-next" class="page-btn" title="Następna strona">›</button>
     </div>
@@ -222,6 +452,19 @@
       <input id="reader-slider" type="range" min="0" max="1" step="0.001" value="0">
       <span id="reader-percent">0%</span>
     </footer>
+  </div>
+
+  <div id="note-modal" class="modal over-reader hidden">
+    <div class="modal-box">
+      <h2>Notatka</h2>
+      <blockquote id="note-quote"></blockquote>
+      <textarea id="note-text" rows="5" placeholder="Twoja notatka… (Ctrl+Enter zapisuje)"></textarea>
+      <div id="note-colors" class="note-colors"></div>
+      <div class="modal-actions">
+        <button id="note-save" class="primary">💾 Zapisz</button>
+        <button id="note-cancel">Anuluj</button>
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="hidden"></div>

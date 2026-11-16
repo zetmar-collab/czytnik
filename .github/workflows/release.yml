@@ -9,6 +9,26 @@ permissions:
   contents: write
 
 jobs:
+  # Testy interfejsu w Electronie (bez sieci i bez dźwięku). Nieblokujące — środowisko CI
+  # nie zawsze ma wyświetlacz; wynik jest informacją, a nie bramką wydania.
+  ui-tests:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node test/make-samples.js
+      - name: Testy UI (offline)
+        env:
+          CZYTNIK_SMOKE: '1'
+          CZYTNIK_OFFLINE: '1'
+          CZYTNIK_NO_TTS: '1'
+        run: npx electron . 2>&1 | Tee-Object -FilePath ui.log; if (Select-String -Path ui.log -Pattern 'WYNIK: SUKCES' -Quiet) { exit 0 } else { exit 1 }
+
   build-windows:
     runs-on: windows-latest
     steps:
@@ -23,9 +43,7 @@ jobs:
         run: npm ci
 
       - name: Testy (headless)
-        run: |
-          node test/make-samples.js
-          node test/smoke.js
+        run: npm test
 
       - name: Budowanie instalatora
         run: npm run dist:win
@@ -45,6 +63,7 @@ jobs:
           files: |
             dist/Czytnik-Instalator-*.exe
             dist/Czytnik-Instalator-*.exe.blockmap
+            dist/latest.yml
           generate_release_notes: true
 
   build-linux:
@@ -61,9 +80,7 @@ jobs:
         run: npm ci
 
       - name: Testy (headless)
-        run: |
-          node test/make-samples.js
-          node test/smoke.js
+        run: npm test
 
       - name: Budowanie pakietu
         run: npm run dist:linux

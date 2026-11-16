@@ -3,3 +3,4 @@ dist/
 test/biblioteka/
 .claude/*
 !.claude/skills/
+test/evil/

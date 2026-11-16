@@ -7,12 +7,21 @@ const cheerio = require('cheerio');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
+const TIMEOUT = 15000;
+
+// Każde zapytanie ma limit czasu — inaczej zawieszony serwer blokuje interfejs w nieskończoność.
 async function fetchRaw(url, options = {}) {
-  const res = await net.fetch(url, {
-    ...options,
-    headers: { 'User-Agent': UA, 'Accept-Language': 'pl-PL,pl;q=0.9', ...(options.headers || {}) },
-  });
-  return res;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeout || TIMEOUT);
+  try {
+    return await net.fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: { 'User-Agent': UA, 'Accept-Language': 'pl-PL,pl;q=0.9', ...(options.headers || {}) },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Niektóre serwisy podwójnie kodują encje HTML w opisach.
@@ -196,13 +205,9 @@ async function details(candidate) {
   return candidate;
 }
 
+// Pobieranie okładki z adresu podanego przez serwis — ta sama walidacja co w covers.js.
 async function downloadCover(url) {
-  const res = await fetchRaw(url);
-  if (!res.ok) throw new Error(`Okładka: HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  const ct = res.headers.get('content-type') || '';
-  const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : ct.includes('gif') ? 'gif' : 'jpg';
-  return { buf, ext };
+  return await require('./covers').download(url);
 }
 
 module.exports = { search, details, downloadCover };
