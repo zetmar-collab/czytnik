@@ -56,6 +56,27 @@ function snapshot({ withSettings = true } = {}) {
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : null);
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
+// Ustawienia z pliku trafiają do CSS i interfejsu — przyjmujemy wyłącznie znane pola o ograniczonych wartościach.
+function cleanSettings(st) {
+  const out = {};
+  const clamp = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+  if (['dark', 'light', 'auto'].includes(st.appTheme)) out.appTheme = st.appTheme;
+  const r = st.readerSettings;
+  if (r && typeof r === 'object') {
+    out.readerSettings = {
+      fontFamily: typeof r.fontFamily === 'string' && /^[\p{L}\p{N} \-]{0,60}$/u.test(r.fontFamily) ? r.fontFamily : '',
+      fontSize: clamp(r.fontSize, 8, 40, 18), lineHeight: clamp(r.lineHeight, 1, 3, 1.55),
+      justify: r.justify !== false, flow: r.flow === 'scrolled' ? 'scrolled' : 'paginated',
+      readerTheme: ['dark', 'light', 'auto'].includes(r.readerTheme) ? r.readerTheme : 'dark',
+    };
+  }
+  const t = st.ttsSettings;
+  if (t && typeof t === 'object') {
+    out.ttsSettings = { voice: typeof t.voice === 'string' ? t.voice.slice(0, 120) : '', rate: Math.round(clamp(t.rate, -10, 10, 0)) };
+  }
+  return out;
+}
+
 function sanitize(raw) {
   if (!raw || typeof raw !== 'object' || raw.format !== FORMAT) throw new Error('To nie jest plik kopii zapasowej Czytnika');
   if (!(raw.version >= 1) || raw.version > VERSION) throw new Error('Plik pochodzi z nowszej wersji Czytnika — zaktualizuj aplikację');
@@ -90,9 +111,7 @@ function sanitize(raw) {
     const s = num(r.seconds);
     if (s > 0 && s < 86400) out.reading.push({ key: r.key, day: r.day, seconds: Math.round(s) });
   }
-  if (raw.settings && typeof raw.settings === 'object') {
-    for (const k of SETTINGS_KEYS) if (k in raw.settings) out.settings[k] = raw.settings[k];
-  }
+  if (raw.settings && typeof raw.settings === 'object') out.settings = cleanSettings(raw.settings);
   return out;
 }
 

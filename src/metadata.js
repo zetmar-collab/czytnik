@@ -198,6 +198,30 @@ async function search(source, query) {
   throw new Error('Nieznane źródło: ' + source);
 }
 
+// Adres strony szczegółów musi należeć do serwisu, z którego pochodzi kandydat (renderer jest niezaufany).
+const DETAIL_HOSTS = { lubimyczytac: /(^|\.)lubimyczytac\.pl$/i, upolujebooka: /(^|\.)upolujebooka\.pl$/i };
+
+// Odbudowuje kandydata z dozwolonych pól — nie ufamy obiektowi przysłanemu z renderera.
+function cleanCandidate(c) {
+  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+  if (!c || !['google', 'lubimyczytac', 'upolujebooka'].includes(c.source)) throw new Error('Nieznane źródło kandydata');
+  const out = {
+    source: c.source, title: str(c.title, 500), author: str(c.author, 500), description: str(c.description, 20000),
+    publisher: str(c.publisher, 300), year: str(c.year, 20), isbn: str(c.isbn, 40),
+    rating: typeof c.rating === 'number' && Number.isFinite(c.rating) ? c.rating : null,
+    coverUrl: str(c.coverUrl, 2000), url: str(c.url, 2000), needsDetails: !!c.needsDetails,
+  };
+  if (out.url && DETAIL_HOSTS[out.source]) {
+    let u;
+    try { u = new URL(out.url); } catch { throw new Error('Nieprawidłowy adres kandydata'); }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('Nieprawidłowy adres kandydata');
+    if (!DETAIL_HOSTS[out.source].test(u.hostname)) throw new Error('Adres kandydata nie należy do serwisu źródłowego');
+  } else if (out.url && out.source === 'google') {
+    out.url = null; // dla Google Books strona szczegółów nie jest pobierana
+  }
+  return out;
+}
+
 async function details(candidate) {
   if (!candidate.needsDetails) return candidate;
   if (candidate.source === 'lubimyczytac') return await detailsLubimyczytac(candidate);
@@ -210,4 +234,4 @@ async function downloadCover(url) {
   return await require('./covers').download(url);
 }
 
-module.exports = { search, details, downloadCover };
+module.exports = { search, details, downloadCover, cleanCandidate };

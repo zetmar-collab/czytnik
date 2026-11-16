@@ -351,6 +351,23 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'czytnik-unit-'));
     await assert.rejects(() => up.download({ url, destFile: dest2, fetchRaw: redirect }), /zablokowane|nieznanego/);
   });
 
+  await t('bezpieczeństwo: kandydat metadanych i ustawienia z pliku są walidowane', () => {
+    const m = require('../src/metadata');
+    const S = require('../src/sync');
+    assert.strictEqual(m.cleanCandidate({ source: 'lubimyczytac', url: 'https://lubimyczytac.pl/k/1', title: 'T', extra: 'x' }).extra, undefined);
+    for (const bad of ['http://127.0.0.1/a', 'https://lubimyczytac.pl.evil.com/a', 'file:///c:/x', 'ftp://lubimyczytac.pl/a']) {
+      assert.throws(() => m.cleanCandidate({ source: 'lubimyczytac', url: bad }), bad);
+    }
+    assert.throws(() => m.cleanCandidate({ source: 'obcy' }));
+    const st = S.sanitize({ format: 'czytnik-backup', version: 1, settings: {
+      appTheme: 'x', readerSettings: { fontFamily: 'a";}body{x:1', fontSize: 999, readerTheme: 'evil' }, ttsSettings: { voice: 5, rate: 99 } } }).settings;
+    assert.strictEqual(st.appTheme, undefined);
+    assert.strictEqual(st.readerSettings.fontFamily, '');
+    assert.strictEqual(st.readerSettings.fontSize, 40);
+    assert.strictEqual(st.readerSettings.readerTheme, 'dark');
+    assert.strictEqual(st.ttsSettings.rate, 10);
+  });
+
   // ---- automatyczna kopia metadanych ----
   await t('kopia metadanych: tworzy plik, nie powtarza przed upływem terminu, usuwa najstarsze', async () => {
     await db.open(tmp());

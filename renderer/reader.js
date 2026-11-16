@@ -48,7 +48,8 @@ const DEFAULT_SETTINGS = {
 
 function bookCSS(s) {
   const dark = isDark(s.readerTheme);
-  const fontRule = s.fontFamily
+  const fontOk = FONTS.some(([v]) => v && v === s.fontFamily); // tylko czcionki z listy (ustawienia mogą pochodzić z pliku)
+  const fontRule = fontOk
     ? `html, body, p, li, blockquote, dd, div, span, h1, h2, h3, h4, h5, h6 { font-family: "${s.fontFamily}", serif !important; }`
     : '';
   const darkRules = dark

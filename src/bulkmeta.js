@@ -44,7 +44,7 @@ function bestMatch(book, candidates) {
 
 // Zapisuje kandydata w bazie (wspólne dla pojedynczego i masowego dopasowania).
 async function applyCandidate(id, candidate, coversDir, { keepCover = false } = {}) {
-  const full = await metadata.details(candidate);
+  const full = await metadata.details(metadata.cleanCandidate(candidate));
   const fields = { meta_source: full.source };
   for (const f of ['title', 'author', 'description', 'publisher', 'year', 'isbn']) if (full[f]) fields[f] = full[f];
   if (full.rating != null) fields.rating = full.rating;
