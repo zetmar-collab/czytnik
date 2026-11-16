@@ -27,7 +27,8 @@ jobs:
           CZYTNIK_SMOKE: '1'
           CZYTNIK_OFFLINE: '1'
           CZYTNIK_NO_TTS: '1'
-        run: npx electron . 2>&1 | Tee-Object -FilePath ui.log; if (Select-String -Path ui.log -Pattern 'WYNIK: SUKCES' -Quiet) { exit 0 } else { exit 1 }
+        run: |
+          npx electron . 2>&1 | Tee-Object -FilePath ui.log; if (Select-String -Path ui.log -Pattern 'WYNIK: SUKCES' -Quiet) { exit 0 } else { exit 1 }
 
   build-windows:
     runs-on: windows-latest
